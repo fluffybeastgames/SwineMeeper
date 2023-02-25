@@ -3,10 +3,10 @@
 import random as rand
 import tkinter as tk # currently only used in this script to grab const values tk.NORMAL and tk.DISABLED
 
-GAME_STATUS_INIT = 'Initializing'
 GAME_STATUS_READY = 'Ready'
 GAME_STATUS_IN_PROGRESS = 'In Progress'
 GAME_STATUS_GAME_OVER = 'Game Over'
+GAME_STATUS_WON = 'Won'
 
 CELL_STATUS_HIDDEN = 0 # available
 CELL_STATUS_EXPOSED = 1
@@ -57,15 +57,18 @@ class SwinemeeperBoard:
 
         self.num_rows = num_rows
         self.num_cols = num_cols
-        self.num_bombs = num_bombs
-        self.turn_count = 0 # will be incremented every time a valid click event is encountered #TODO HERE!!!!! REMOVE THIS AND REPLACE WITH FUNC
 
         self.board = [[MinesweeperCell(i, j) for j in range(num_cols)] for i in range(num_rows)]
-
+        
+        self.num_bombs = num_bombs
+        
         self.add_bombs(num_bombs)
         self.calculate_neighbors()
 
         self.game_status = GAME_STATUS_READY
+    
+        self.turn_count = 0 # will be incremented every time a valid click event is encountered #TODO HERE!!!!! REMOVE THIS AND REPLACE WITH FUNC
+
 
     def add_bombs(self, num_bombs_to_add):
         num_attempts = 0
@@ -85,6 +88,27 @@ class SwinemeeperBoard:
     
     def remove_bomb(self, cell_coords): # eg if encountered on first move
         self.board[cell_coords[0]][cell_coords[1]].contains_bomb = False
+
+
+    def get_remaining_cell_count(self): # How many more cells must be exposed before only bombs are left?
+        total_cells = self.num_rows * self.num_cols
+        cells_occupied = 0
+        for row in range(self.num_rows):
+            for col in range(self.num_cols):
+                if self.board[row - 1][col].status == CELL_STATUS_EXPOSED:
+                    cells_occupied +=1
+                    
+        #print(f'cells occupied: {cells_occupied}, bombs_left: {total_cells - cells_occupied - self.num_bombs}')
+        return total_cells - cells_occupied - self.num_bombs
+
+
+    def get_num_flags_placed(self):
+        num_flags = 0
+        for row in range(self.num_rows):
+            for col in range(self.num_cols):
+                if self.board[row - 1][col].status == CELL_STATUS_FLAG:
+                    num_flags +=1        
+        return num_flags
 
 
     def calculate_neighbors(self):
@@ -184,6 +208,14 @@ class SwinemeeperBoard:
         return dict_out
 
 
+    def induce_win(self):
+        # Call this method when the game state is switched to game over. Disables all cells
+        self.game_status = GAME_STATUS_WON
+        for row in range(self.num_rows):
+            for col in range(self.num_cols):
+                self.board[row][col].enabled = False
+
+
     def induce_game_over(self, losing_coords):
         # Call this method when the game state is switched to game over. Disables all cells
         self.game_status = GAME_STATUS_GAME_OVER
@@ -229,7 +261,7 @@ class SwinemeeperBoard:
 
         cell_status = self.board[row][col].status
 
-        if self.game_status in (GAME_STATUS_READY, GAME_STATUS_IN_PROGRESS) and cell_status == CELL_STATUS_HIDDEN: # proceed
+        if self.game_status in (GAME_STATUS_READY, GAME_STATUS_IN_PROGRESS) and cell_status in (CELL_STATUS_HIDDEN, CELL_STATUS_FLAG_MAYBE): # proceed
 
             if was_clicked:
                 self.game_status = GAME_STATUS_IN_PROGRESS
@@ -249,7 +281,7 @@ class SwinemeeperBoard:
             else:
                 self.board[row][col].status = CELL_STATUS_EXPOSED
 
-            # start search for newly exposed "0 neighbors" cells if cell value = 0
+            # If the cell contains no neighbors, recursively 'click' on all adjacent cells until a wall of numbers is fully exposed
             if self.board[row][col].neighbors == 0:
                 if self.valid_target(row - 1, col - 1): self.expose_cell((row - 1, col - 1))
                 if self.valid_target(row - 1, col): self.expose_cell((row - 1, col))
@@ -261,6 +293,10 @@ class SwinemeeperBoard:
                 if self.valid_target(row + 1, col - 1): self.expose_cell((row + 1, col - 1))
                 if self.valid_target(row + 1, col): self.expose_cell((row + 1, col))
                 if self.valid_target(row + 1, col + 1): self.expose_cell((row + 1, col + 1))
+
+            if self.get_remaining_cell_count() <= 0:
+                print('YOU WIN')
+                self.induce_win()
 
 
     def expand_solution(self, cell_coords): # aka middle click

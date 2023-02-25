@@ -45,10 +45,9 @@ def import_assets(root, dir_img):
     cell_width.set(root.img_0.width() + MAGIC_NUM_TO_FIX_CELL_HEIGHT) # TODO THIS SEEMS LIKE BAD PRACTICE!
     cell_height.set(root.img_0.height() + MAGIC_NUM_TO_FIX_CELL_HEIGHT) # TODO THIS SEEMS LIKE BAD PRACTICE!
    
-
-
+   
 def ButtonReleaseHandler(btn_coords, event):
-    if board.game_status not in(meep.GAME_STATUS_GAME_OVER):
+    if board.game_status in(meep.GAME_STATUS_READY, meep.GAME_STATUS_IN_PROGRESS):
 
         # First check to see if the user tried to cancel the click by moving the cursor out of the cell
         if not(event.x < 0 or event.y < 0 or event.x > cell_width.get() or event.y > cell_height.get()):
@@ -87,10 +86,16 @@ def render_gui():
     # update top frame
 
     varClock.set(str(board.turn_count).zfill(3))
+    
+    
+    varBombCounter.set(str(board.num_bombs - board.get_num_flags_placed()).zfill(3))
+    
 
     if board.game_status == meep.GAME_STATUS_GAME_OVER:
         print('game over button')
-        dict_buttons[(i,j)].config(image=getattr(root, board.board[i][j].get_img_key()))##, state=state)
+        #dict_buttons[(i,j)].config(image=getattr(root, board.board[i][j].get_img_key()))##, state=state)
+
+        ###dict_buttons[(i,j)].config(image=getattr(root, board.board[i][j].get_img_key()))##, state=state)
             
     else:
         print('happy buttton')
@@ -99,6 +104,7 @@ def render_gui():
 
 def restart_game():
     print('Restarting game...')
+    print('(todo)')
 
 
 def create_frame_cell_grid():
@@ -133,7 +139,7 @@ def open_game_settings_window():
    top= tk.Toplevel(root)
    top.geometry("500x250")
    top.title("Game Settings")
-   tk.Label(top, text= "Settings go here", font=('Helvetica 14 bold')).place(x=150,y=80)
+   tk.Label(top, text= "Settings go here", font=('Stencil 24')).place(x=150,y=80)
 
 def open_help_window():
    top= tk.Toplevel(root)
@@ -149,7 +155,6 @@ def open_about_window():
 
 
 def create_gui(dir_img):
-
     import_assets(root, dir_img)
 
     create_menu_bar()
@@ -161,31 +166,23 @@ def create_gui(dir_img):
     varBombCounter.set(str(board.num_bombs).zfill(3))
 
     btn_start = tk.Button(master=frame_top, image=root.img_happy, command=restart_game)
-    lbl_clock = tk.Label(master=frame_top, textvariable=varClock)
-    lbl_bomb_counter = tk.Label(master=frame_top, textvariable=varBombCounter)
+    lbl_clock = tk.Label(master=frame_top, textvariable=varClock, font=('Stencil 24'))
+    lbl_bomb_counter = tk.Label(master=frame_top, textvariable=varBombCounter, font=('Stencil 24'))
     
-    lbl_clock.grid(row=0, column=0)
+    lbl_clock.grid(row=0, column=0) #, sticky = tk.W)
     btn_start.grid(row=0, column=1)
     lbl_bomb_counter.grid(row=0, column=2)
 
     # Game Frame - a 2D array of buttons representing the game cells
     frame_cell_grid = create_frame_cell_grid() #
     
-
     frame_top.grid(row=0, column=0, pady=5)
     frame_cell_grid.grid(row=1, column=0, pady=5)
 
 
-
 if __name__ == '__main__':
-
-
     dir_img =  r'C:\Users\thema\Documents\Python Scripts\swinemeeper\img\\'
-    # rows = 7
-    # cols = 12
-    # bombs = int(rows*cols*.25)
-
-
+   
     rows = 10
     cols = 10
     bombs = 5
@@ -195,11 +192,7 @@ if __name__ == '__main__':
     # board.print_neighbor_grid()
     # board.print_display_grid()
 
-
     create_gui(dir_img)
-    
-    # varClock.set('001')
-    # varBombCounter.set('998')
 
     root.mainloop()
 
