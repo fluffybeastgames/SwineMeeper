@@ -2,6 +2,7 @@
 
 import random as rand
 import tkinter as tk # currently only used in this script to grab const values tk.NORMAL and tk.DISABLED
+import time
 
 GAME_STATUS_READY = 'Ready'
 GAME_STATUS_IN_PROGRESS = 'In Progress'
@@ -15,6 +16,17 @@ CELL_STATUS_FLAG_MAYBE = 3
 CELL_STATUS_BOOM = 4
 CELL_STATUS_BOMB_EXPOSED = 5 
 CELL_STATUS_FLAG_WAS_WRONG = 6
+
+RECURSION_LIMIT = 1000 # 1000 by default, but can be exapnded at user risk w/ sys.setrecursionlimit(num)
+    # Added maximum size for grid (for general performance reasons but more specifically to avoid breaching the recursion depth limit. When implementing custom game dimensions we could offer users exceeding the default max of 1000 cells the ability to increase the sys. max recursion depth option (up to a reasonable option like, 2000?)
+ 
+DEBUG_MODE = True # no proper logging exists yet, but this will increase the number of print() statements executed
+if DEBUG_MODE: print('initializing with DEBUG_MODE active')
+
+
+class SwineMeeperGameManager:
+    def __init__(self):
+        print('IM ALIVE...aka todo')
 
 
 class MinesweeperCell:
@@ -34,25 +46,93 @@ class MinesweeperCell:
             return f'img_{self.neighbors}'
         elif self.status == CELL_STATUS_FLAG:
             return 'img_flag'
-        elif self.status == CELL_STATUS_FLAG_MAYBE: # TODO add logic and image
+        elif self.status == CELL_STATUS_FLAG_MAYBE:
             return 'img_flag_maybe'
         elif self.status == CELL_STATUS_BOOM:
             return 'img_boom'
-        elif self.status == CELL_STATUS_BOMB_EXPOSED: # TODO add logic and image
+        elif self.status == CELL_STATUS_BOMB_EXPOSED:
             return 'img_bomb'
         elif self.status == CELL_STATUS_FLAG_WAS_WRONG: # TODO add logic and image
             return 'img_bad_flag'
         else: # hidden should be the only remaining option
             return 'img_hidden'
+
+
+class SwineTimer:
+    def __init__(self):
+#        print('I am a timer class init method.')       
+        self.root = tk.Label()
+        #self.timer_label = tk.StringVar()
+        #self.time_elapsed = 0
+        self.start_time = 0
+        self.stop_time = 0
         
+        self.is_running = False
+
+    def start_timer(self):
+        if not self.is_running:
+            print(f'Starting timer')
+            self.is_running = True
+            self.start_time = time.time()
+            self.stop_time = 0
+
+    def pause_timer(self):
+        if self.is_running:
+            print(f'Stopping timer')
+            self.is_running = False
+            self.stop_time = time.time()
+
+    def restart_timer(self):
+        if self.is_running:
+            print(f'Resetting timer')
+            self.start_time = 0
+            self.stop_time = 0
+
+    def get_elapsed_time(self):
+        if self.is_running:
+            return int(time.time() - self.start_time)
+        
+        else:
+            return int(self.stop_time - self.start_time)
+        
+
+    # # def udate_timer_label(self):
+    # #     self.timer_label.set(str(int(time.time() - self.start_time)).zfill(3))
+
+    # #     self.after_loop = self.root.after(250, self.udate_timer_label) # this will call its own function every 250 ms until cancelled with after_cancel
+    # #     # print(f'label {self.timer_label.get()}')
+
+    # def pause_timer(self):
+    #     if self.is_running:
+    #         print(f'Stopping timer at {self.timer_label.get()}')
+    #         self.timer_label.set(time.time() - self.start_time)
+    #         self.root.after_cancel(self.after_loop)
+    #         self.is_running = False
+    
+    
+    # def reset_timer(self):
+    #     if self.is_running:
+    #         print(f'Resetting timer (was{self.timer_label.get()})')
+    #         self.timer_label.set('000')
+    #         self.root.after_cancel(self.after_loop)
+    #         self.is_running = False
+
+
+
+
+
 
 class SwinemeeperBoard:
     def __init__(self, num_rows, num_cols, num_bombs):
-
-        print('Initializing board object')
-        print(f'Parameters: {num_rows} rows x {num_cols} with {num_bombs} bombs')
         
-        if num_bombs >= num_rows*num_cols:
+        if DEBUG_MODE:
+            print('Initializing board object')
+            print(f'Parameters: {num_rows} rows x {num_cols} with {num_bombs} bombs')
+        
+        if num_rows*num_cols >= RECURSION_LIMIT:
+            raise ValueError('Too many cells!')
+        
+        elif num_bombs >= num_rows*num_cols:
             raise ValueError('Too many bombs!')
 
         self.num_rows = num_rows
@@ -69,10 +149,14 @@ class SwinemeeperBoard:
     
         self.turn_count = 0 # will be incremented every time a valid click event is encountered #TODO HERE!!!!! REMOVE THIS AND REPLACE WITH FUNC
 
+        self.timer = SwineTimer()
+        
+
 
     def add_bombs(self, num_bombs_to_add):
         num_attempts = 0
         num_added = 0
+        attempt_start_time = time.time()
 
         while (num_added < num_bombs_to_add):
             num_attempts = num_attempts + 1       
@@ -83,7 +167,7 @@ class SwinemeeperBoard:
                 self.board[target_row][target_col].contains_bomb = True
                 num_added = num_added + 1
         
-        print(f'Added {num_bombs_to_add} bombs in {num_attempts} attempts.')
+        if DEBUG_MODE: print(f'Added {num_bombs_to_add} bombs in {num_attempts} attempts. Time elapsed: {time.time() - attempt_start_time}')
 
     
     def remove_bomb(self, cell_coords): # eg if encountered on first move
@@ -98,7 +182,7 @@ class SwinemeeperBoard:
                 if self.board[row - 1][col].status == CELL_STATUS_EXPOSED:
                     cells_occupied +=1
                     
-        #print(f'cells occupied: {cells_occupied}, bombs_left: {total_cells - cells_occupied - self.num_bombs}')
+        #if DEBUG_MODE: print(f'cells occupied: {cells_occupied}, bombs_left: {total_cells - cells_occupied - self.num_bombs}')
         return total_cells - cells_occupied - self.num_bombs
 
 
@@ -208,21 +292,30 @@ class SwinemeeperBoard:
         return dict_out
 
 
-    def induce_win(self):
-        # Call this method when the game state is switched to game over. Disables all cells
-        self.game_status = GAME_STATUS_WON
+    def end_game(self, victory=False):
+        self.timer.pause_timer()
+
         for row in range(self.num_rows):
             for col in range(self.num_cols):
-                self.board[row][col].enabled = False
+                self.board[row][col].enabled = False # all cells should be disabled, regardless of status
+                
+                cell_status = self.board[row][col].status
+                cell_has_bomb = self.board[row][col].contains_bomb
 
-
-    def induce_game_over(self, losing_coords):
-        # Call this method when the game state is switched to game over. Disables all cells
-        self.game_status = GAME_STATUS_GAME_OVER
-        for row in range(self.num_rows):
-            for col in range(self.num_cols):
-                self.board[row][col].enabled = False
+                if cell_has_bomb and cell_status in (CELL_STATUS_HIDDEN, CELL_STATUS_FLAG_MAYBE):
+                    if victory:
+                        self.board[row][col].status = CELL_STATUS_FLAG
+                    else:
+                        self.board[row][col].status = CELL_STATUS_BOMB_EXPOSED
                     
+        if victory:
+            self.game_status = GAME_STATUS_WON
+            print('YOU WIN')
+
+        else:
+            self.game_status = GAME_STATUS_GAME_OVER
+            print('YOU LOSE')
+
 
     def toggle_flag(self, cell_coords):  # aka right click
         row = cell_coords[0]
@@ -262,48 +355,70 @@ class SwinemeeperBoard:
         cell_status = self.board[row][col].status
 
         if self.game_status in (GAME_STATUS_READY, GAME_STATUS_IN_PROGRESS) and cell_status in (CELL_STATUS_HIDDEN, CELL_STATUS_FLAG_MAYBE): # proceed
+            if self.game_status == GAME_STATUS_READY:
+                self.timer.start_timer()
+                self.game_status = GAME_STATUS_IN_PROGRESS
 
             if was_clicked:
-                self.game_status = GAME_STATUS_IN_PROGRESS
                 self.turn_count += 1
 
             if self.board[row][col].contains_bomb:
                 if self.turn_count <= 1: # move bomb to a new location, recalculate neighbor counts, and reveal newly empty cell                        
+                    # TODO perhaps we should make this functionality optional? Add a checkbox to the options..
+
                     print('OH NO a bomb on the first move') # HMMMM what about an option to implement 'suicide minesweeper' where you're guaranteed 0 neighbors on 1st move and then have to left click on bombs to expose more territory?
                     self.add_bombs(1)
                     self.remove_bomb(cell_coords)
                     self.calculate_neighbors()
                     # self.print_bomb_grid()
+                    self.board[row][col].status = CELL_STATUS_EXPOSED
 
                 else:
                     self.board[row][col].status = CELL_STATUS_BOOM
-                    self.induce_game_over(cell_coords)
+                    self.end_game(victory=False)
             else:
                 self.board[row][col].status = CELL_STATUS_EXPOSED
 
             # If the cell contains no neighbors, recursively 'click' on all adjacent cells until a wall of numbers is fully exposed
+            
             if self.board[row][col].neighbors == 0:
-                if self.valid_target(row - 1, col - 1): self.expose_cell((row - 1, col - 1))
-                if self.valid_target(row - 1, col): self.expose_cell((row - 1, col))
-                if self.valid_target(row - 1, col + 1): self.expose_cell((row - 1, col + 1))
+                if self.valid_target(row + 1, col): self.expose_cell((row + 1, col)) # down
+                if self.valid_target(row, col + 1): self.expose_cell((row, col + 1)) # right
+                if self.valid_target(row - 1, col): self.expose_cell((row - 1, col)) # up
+                if self.valid_target(row, col - 1): self.expose_cell((row, col - 1)) # left
+                if self.valid_target(row + 1, col + 1): self.expose_cell((row + 1, col + 1)) # bot right           
+                if self.valid_target(row + 1, col - 1): self.expose_cell((row + 1, col - 1)) # bot left
+                if self.valid_target(row - 1, col + 1): self.expose_cell((row - 1, col + 1)) # top right
+                if self.valid_target(row - 1, col - 1): self.expose_cell((row - 1, col - 1)) # top left
                 
-                if self.valid_target(row, col - 1): self.expose_cell((row, col - 1))
-                if self.valid_target(row, col + 1): self.expose_cell((row, col + 1))
+                
+                
+                
+            
+            
+            # if self.board[row][col].neighbors == 0:
+            #     if self.valid_target(row - 1, col - 1): self.expose_cell((row - 1, col - 1))
+            #     if self.valid_target(row - 1, col): self.expose_cell((row - 1, col))
+            #     if self.valid_target(row - 1, col + 1): self.expose_cell((row - 1, col + 1))
+                
+            #     if self.valid_target(row, col - 1): self.expose_cell((row, col - 1))
+            #     if self.valid_target(row, col + 1): self.expose_cell((row, col + 1))
 
-                if self.valid_target(row + 1, col - 1): self.expose_cell((row + 1, col - 1))
-                if self.valid_target(row + 1, col): self.expose_cell((row + 1, col))
-                if self.valid_target(row + 1, col + 1): self.expose_cell((row + 1, col + 1))
+            #     if self.valid_target(row + 1, col - 1): self.expose_cell((row + 1, col - 1))
+            #     if self.valid_target(row + 1, col): self.expose_cell((row + 1, col))
+            #     if self.valid_target(row + 1, col + 1): self.expose_cell((row + 1, col + 1))
 
             if self.get_remaining_cell_count() <= 0:
-                print('YOU WIN')
-                self.induce_win()
+                self.end_game(victory=True)
 
 
     def expand_solution(self, cell_coords): # aka middle click
+        print('expaaaand')
         row = cell_coords[0]
         col = cell_coords[1]
-
-        if self.game_status in (GAME_STATUS_IN_PROGRESS):
+    
+        if self.game_status in (GAME_STATUS_READY, GAME_STATUS_IN_PROGRESS):
+            print('wt')
             if self.board[row][col].status == CELL_STATUS_EXPOSED: # can't expand if we can't see the neighboring bomb count
                 print('to do expand')
                 # check if number of adjacent flags is the same as num_neighbors
@@ -336,7 +451,7 @@ class SwinemeeperBoard:
 
     def print_neighbor_grid(self): # for debug purposes
         print('\nNeighbor grid:')
-        str_output = ''
+        str_output = '' 
         for row in range(self.num_rows):
             for col in range(self.num_cols):
                 str_output = f'{str_output}\t{self.board[row][col].neighbors}'

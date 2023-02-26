@@ -84,13 +84,9 @@ def render_gui():
             ####dict_buttons[(i, j)]['state'] = dict_curr_btn_states[(i,j)]
            
     # update top frame
-
-    varClock.set(str(board.turn_count).zfill(3))
-    
-    
+    varClock.set(str(board.timer.get_elapsed_time()).zfill(3))
     varBombCounter.set(str(board.num_bombs - board.get_num_flags_placed()).zfill(3))
     
-
     if board.game_status == meep.GAME_STATUS_GAME_OVER:
         print('game over button')
         #dict_buttons[(i,j)].config(image=getattr(root, board.board[i][j].get_img_key()))##, state=state)
@@ -167,6 +163,7 @@ def create_gui(dir_img):
 
     btn_start = tk.Button(master=frame_top, image=root.img_happy, command=restart_game)
     lbl_clock = tk.Label(master=frame_top, textvariable=varClock, font=('Stencil 24'))
+    #lbl_clock = tk.Label(master=frame_top, textvariable=board.timer.udate_timer_label , font=('Stencil 24'))
     lbl_bomb_counter = tk.Label(master=frame_top, textvariable=varBombCounter, font=('Stencil 24'))
     
     lbl_clock.grid(row=0, column=0) #, sticky = tk.W)
@@ -184,11 +181,12 @@ if __name__ == '__main__':
     dir_img =  r'C:\Users\thema\Documents\Python Scripts\swinemeeper\img\\'
    
     rows = 10
-    cols = 10
+    cols = 15
     bombs = 5
     
     board = meep.SwinemeeperBoard(rows, cols, bombs)
-    board.print_bomb_grid()
+    
+    board.print_bomb_grid()    
     # board.print_neighbor_grid()
     # board.print_display_grid()
 
