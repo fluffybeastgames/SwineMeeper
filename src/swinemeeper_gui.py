@@ -97,84 +97,11 @@ def render_gui():
         print('happy buttton')
 
 
-
 def restart_game():
     print('Restarting game...')
     print('(todo)')
 
 
-def create_frame_cell_grid():
-    frame_out = tk.Frame(master=root)
-    
-    for i in range(board.num_rows):
-        for j in range(board.num_cols):
-            dict_buttons[(i, j)] = tk.Button(master=frame_out, image=root.img_hidden) # add cell to the dictionary and establish default behavior
-            #dict_buttons[(i, j)].grid(row=i, column=j, pady=Y_PAD_ON_CELLS) # place the cell in the frame
-            dict_buttons[(i, j)].grid(row=i, column=j) # place the cell in the frame
-            dict_buttons[(i, j)].bind('<ButtonRelease>', partial(ButtonReleaseHandler,(i , j))) # add a mouse handler to deal with user input
-            
-    return frame_out
-
-
-def create_menu_bar():
-    menubar = tk.Menu(root)
-    filemenu = tk.Menu(menubar, tearoff=0)
-    filemenu.add_command(label="About", command=open_about_window)
-    filemenu.add_separator()
-    filemenu.add_command(label="Exit", command=root.quit)
-    menubar.add_cascade(label="File", menu=filemenu)
-
-    game_menu = tk.Menu(menubar, tearoff=0)
-    game_menu.add_command(label="Settings", command=open_game_settings_window)
-    game_menu.add_command(label="Help", command=open_help_window)
-    menubar.add_cascade(label="Game", menu=game_menu)
-
-    root.config(menu=menubar)
-
-def open_game_settings_window():
-   top= tk.Toplevel(root)
-   top.geometry("500x250")
-   top.title("Game Settings")
-   tk.Label(top, text= "Settings go here", font=('Stencil 24')).place(x=150,y=80)
-
-def open_help_window():
-   top= tk.Toplevel(root)
-   top.geometry("500x250")
-   top.title("Help")
-   tk.Label(top, text= "Here's how to play SwineMeeper", font=('Helvetica 14 bold')).place(x=150,y=80)
-
-def open_about_window():
-   top= tk.Toplevel(root)
-   top.geometry("500x250")
-   top.title("About SwineMeeper")
-   tk.Label(top, text= "All About SwineMeeper", font=('Helvetica 14 bold')).place(x=150,y=80)
-
-
-def create_gui(dir_img):
-    import_assets(root, dir_img)
-
-    create_menu_bar()
-    
-    # Top Frame - contains the start button and timer/flags remaining counter
-    frame_top = tk.Frame(master=root) 
-    varStartBtnTxt.set(':)')
-    varClock.set('0'.zfill(3))
-    varBombCounter.set(str(board.num_bombs).zfill(3))
-
-    btn_start = tk.Button(master=frame_top, image=root.img_happy, command=restart_game)
-    lbl_clock = tk.Label(master=frame_top, textvariable=varClock, font=('Stencil 24'))
-    #lbl_clock = tk.Label(master=frame_top, textvariable=board.timer.udate_timer_label , font=('Stencil 24'))
-    lbl_bomb_counter = tk.Label(master=frame_top, textvariable=varBombCounter, font=('Stencil 24'))
-    
-    lbl_clock.grid(row=0, column=0) #, sticky = tk.W)
-    btn_start.grid(row=0, column=1)
-    lbl_bomb_counter.grid(row=0, column=2)
-
-    # Game Frame - a 2D array of buttons representing the game cells
-    frame_cell_grid = create_frame_cell_grid() #
-    
-    frame_top.grid(row=0, column=0, pady=5)
-    frame_cell_grid.grid(row=1, column=0, pady=5)
 
 
 if __name__ == '__main__':
