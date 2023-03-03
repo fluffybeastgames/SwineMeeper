@@ -60,8 +60,15 @@ class SwineMeeperGameManager:
         self.add_bombs(self.DEFAULT_NUM_BOMBS)
         self.calculate_neighbors()        
         self.game_status = GAME_STATUS_READY
+        
+        
+        self.debug_mode = True
 
-      
+
+    # def initialize_app_and_gui(self):
+    # def start_or_restart_a_game(self )
+     
+
     def add_bombs(self, num_bombs_to_add):
         num_attempts = 0
         num_added = 0
@@ -153,15 +160,13 @@ class SwineMeeperGameManager:
 
         if victory:
             self.game_status = GAME_STATUS_WON
-            if self.debug_mode: print('YOU WIN')
-
-            
+            if self.debug_mode: print('YOU WIN!')
             #self.root.aftercancel(self.gui.loop)
-            
 
         else:
             self.game_status = GAME_STATUS_LOST
             if self.debug_mode: print('YOU LOSE')
+
 
 
     def toggle_flag(self, cell_coords):  # aka right click
@@ -409,8 +414,8 @@ class SwineMeeperGameManager:
             self.root.title("SwineMeeper")
             self.root.config(menu=self.create_menu_bar(self.root))
 
-            self.CYCLE_SPEED = 6 # desired delay in game loop (in ms)
-            self.FPS_TARGET = 500 # desired frames per second
+            self.CYCLE_SPEED = 30 # desired delay in game loop (in ms)
+            self.FPS_TARGET = 24 # desired frames per second
             
             self.render_timestamp = time.time() # time we last updated the gui
             self.refresh_check_timestamp = 0 # last time a cycle was initiated.. hoping to use for FPS improvement
@@ -432,31 +437,36 @@ class SwineMeeperGameManager:
             self.btn_start = tk.Button(master=self.root, image=self.assets.img_happy, command=self.restart_game)
             self.lbl_clock = tk.Label(master=self.root, textvariable=self.clock_label_text, font=('Stencil 24'))
             self.lbl_bomb_counter = tk.Label(master=self.root, textvariable=self.bomb_counter_text, font=('Stencil 24'))
+            
+            self.frame_cell_grid = self.create_frame_cell_grid()
 
-            #if self.parent.debug_mode:
             self.debug_label_text = tk.StringVar() # A label w/ performance stats used for debugging purposes
             self.debug_label_text.set('')
-            self.lbl_debug = tk.Label(master=self.root, textvariable=self.debug_label_text, font=('Arial 12'), justify='left', anchor='w')
-
-
-            self.frame_cell_grid = tk.Frame(master=self.root)
-            self.board_cell_buttons = {}
-
-            for i in range(self.parent.num_rows):
-                for j in range(self.parent.num_cols):
-                    self.board_cell_buttons[(i, j)] = tk.Button(master=self.frame_cell_grid, image=self.assets.img_hidden) # add cell to the dictionary and establish default behavior
-                    self.board_cell_buttons[(i, j)].grid(row=i, column=j) # place the cell in the frame
-                    self.board_cell_buttons[(i, j)].bind('<ButtonRelease>', partial(self.CellButtonReleaseHandler,(i , j))) # add a mouse handler to deal with user input
+            self.lbl_debug = tk.Label(master=self.root, textvariable=self.debug_label_text, font=('Arial 16'), justify='left', anchor='w')
+            
 
             self.lbl_clock.grid(row=0, column=0) #, sticky = tk.W)
             self.btn_start.grid(row=0, column=1)
             self.lbl_bomb_counter.grid(row=0, column=2)
             self.frame_cell_grid.grid(row=1, column=0, columnspan=3, pady=5)
-            self.lbl_debug.grid(row=2, column=0, columnspan=3, pady=5)
+            
+            if self.parent.debug_mode:
+                self.lbl_debug.grid(row=2, column=0, columnspan=3)
              
             self.game_loop() # start the game cycle!
 
+        def create_frame_cell_grid(self):
+            f_grid = tk.Frame(master=self.root)
+            f_grid.board_cell_buttons = {}
 
+            for i in range(self.parent.num_rows):
+                for j in range(self.parent.num_cols)    :
+                    f_grid.board_cell_buttons[(i, j)] = tk.Button(master=f_grid, image=self.assets.img_hidden) # add cell to the dictionary and establish default behavior
+                    f_grid.board_cell_buttons[(i, j)].grid(row=i, column=j) # place the cell in the frame
+                    f_grid.board_cell_buttons[(i, j)].bind('<ButtonRelease>', partial(self.CellButtonReleaseHandler,(i , j))) # add a mouse handler to deal with user input
+            
+            return f_grid
+        
         def get_performance_stats(self):
             time_since_render =  time.time() - self.render_timestamp
             run_time = round(self.render_timestamp - self.refresh_checks_startup_time,3)
@@ -474,7 +484,8 @@ class SwineMeeperGameManager:
                 f'\nFPS (Actual): {fps_actual:.3f}' +
                 f'\tCycle speed (Actual): {refresh_cycle_actual:.3f} ms' +
                 f'\nClicks processed {self.parent.turn_count}' +
-                f'\t\tRemaining cells: {self.parent.get_remaining_cell_count()} out of {self.parent.num_rows*self.parent.num_cols - self.parent.num_bombs}'
+                f'\t\tRemaining cells: {self.parent.get_remaining_cell_count()} out of {self.parent.num_rows*self.parent.num_cols - self.parent.num_bombs}' + 
+                f'\nLast action: {self.last_action}'
                 )
             
             return str_out
@@ -491,10 +502,7 @@ class SwineMeeperGameManager:
 
                 time_to_render = (time.time() - self.refresh_check_timestamp)*1000 # in ms
                 next_cycle_time = max(int(self.CYCLE_SPEED - time_to_render),0)
-            
-                # after_time = 0 if int(time_to_render) >= self.CYCLE_SPEED else int(self.CYCLE_SPEED - time_to_render)
-                # after_time = max(time_to_render,0)
-                # #after_time = int(self.CYCLE_SPEED)
+                #print(f'render time took: {round(time_to_render,3 )} ms and next cycle will be in {next_cycle_time} ms, cuz the desired refresh time is {round(self.refresh_check_timestamp*1000,3) - self.CYCLE_SPEED} ')#and proof if is {}')
                 
 
                 self.loop = self.root.after(next_cycle_time, self.game_loop) #try again in (at least) X ms
@@ -553,6 +561,7 @@ class SwineMeeperGameManager:
             game_menu.add_command(label="Settings", command=partial(self.open_game_settings_window, root))
             game_menu.add_command(label="Help", command=partial(self.open_help_window, root))
             menubar.add_cascade(label="Game", menu=game_menu)
+
             return menubar
         
 
@@ -591,7 +600,8 @@ class SwineMeeperGameManager:
                     else:
                         raise ValueError('Unexpected button click on game cell')
                 else:
-                    if self.parent.debug_mode: print('unCLICK')
+                    #if self.parent.debug_mode: print('unCLICK')
+                    self.last_action = 'unCLICK'
                 
             self.render_gui()
        
@@ -611,7 +621,7 @@ class SwineMeeperGameManager:
             for i in range(self.parent.num_rows): # basic approach: change the image and TODO state of each cell after every user input
                 for j in range(self.parent.num_cols):
                     cell = self.parent.board[(i,j)]
-                    btn = self.board_cell_buttons[(i,j)]
+                    btn = self.frame_cell_grid.board_cell_buttons[(i,j)]
                     state = tk.NORMAL if cell.enabled() else tk.DISABLED
 
                     btn.config(image=getattr(self.assets, cell.get_cell_image_key()), state=state)
@@ -621,7 +631,26 @@ class SwineMeeperGameManager:
 
         def restart_game(self):
             print('Restarting game...')
-            print('(todo)')
+            print('(in progress)')
+            print('homework: https://stackoverflow.com/questions/55676339/reset-tkinter-window-restore-widgets')
+            
+            self.lbl_debug.destroy()
+            self.lbl_debug = tk.Label(master=self.root, textvariable=self.debug_label_text, font=('Arial 16'), justify='left', anchor='w')
+            # self.pls_work_text.set('test2')
+            self.lbl_debug.grid(row=2, column=0, columnspan=3)
+
+            self.frame_cell_grid = self.create_frame_cell_grid()
+
+
+
+
+
+            # self.lbl_debug.destroy()
+            # self.lbl_debug = tk.Label(master=self.root, textvariable=self.debug_label_text, font=('Arial 16'), justify='left', anchor='w')
+            # # self.pls_work_text.set('test2')
+            # self.lbl_debug.grid(row=2, column=0, columnspan=3)
+
+
 
 
 class SwineTimer:
