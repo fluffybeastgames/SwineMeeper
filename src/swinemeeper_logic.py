@@ -2,6 +2,7 @@
 
 import random as rand
 import tkinter as tk 
+from tkinter import messagebox
 import time
 from functools import partial
 
@@ -11,34 +12,33 @@ class SwineMeeperGameManager:
     DEFAULT_NUM_COLS = 12
     DEFAULT_NUM_BOMBS = 10
     DEFAULT_INCL_MAYBE_FLAG = True
+    DEFAULT_CONFIRM_ON_EXIT = False
+    DEFAULT_TO_DEBUG_MODE = False
     RECURSION_LIMIT = 1000 # 1000 by default, but can be expanded at user risk w/ sys.setrecursionlimit(num). In practice, this is max number of cells we can process with recurisve checks that can conceivably touch every cell at least once
-    DEFAULT_TO_DEBUG_MODE = True
 
     def __init__(self):
         if self.DEFAULT_TO_DEBUG_MODE: print('SwineMeeperGameManager init')
         
         self.debug_mode = self.DEFAULT_TO_DEBUG_MODE
         self.timer = self.SwineTimer(self)
-        self.game = self.SwineMeeperGame(self, self.DEFAULT_NUM_ROWS, self.DEFAULT_NUM_COLS, self.DEFAULT_NUM_BOMBS, self.DEFAULT_INCL_MAYBE_FLAG) # create a default game to allow gui to connect to said elements
-        self.gui = self.SwineMeeperGUI(self)        
-
+        self.game = self.SwineMeeperGame(self, self.DEFAULT_NUM_ROWS, self.DEFAULT_NUM_COLS, self.DEFAULT_NUM_BOMBS) # create a default game to allow gui to connect to said elements
+        self.gui = self.SwineMeeperGUI(self)
+        self.confirm_on_exit = self.DEFAULT_CONFIRM_ON_EXIT # If true, a popup will ask you to confirm before destroying the tk application - TODO add toggle to gui and user settings
+        self.maybe_flag_enabled = self.DEFAULT_INCL_MAYBE_FLAG # If true, right clicking a flag will turn it into a question mark, which can be left or right clicked on. Should be ok to dis/enable mid-game - TODO add toggle to gui and user settings        
+        
 
     #def start_or_restart_game(self,  num_rows=DEFAULT_NUM_ROWS, num_cols=DEFAULT_NUM_COLS, num_bombs_to_add=DEFAULT_NUM_BOMBS, maybe_flag_enabled=DEFAULT_INCL_MAYBE_FLAG):
-    def start_or_restart_game(self, num_rows, num_cols, num_bombs_to_add, maybe_flag_enabled):
-        print('start_or_restart_game() called!')
+    def start_or_restart_game(self, num_rows, num_cols, num_bombs_to_add):
+        self.debug_mode: print('start_or_restart_game() called!')
         
-        
-        # First recreate the game (which will also call the timer's restart clock method), then repopulate the relevant gui elements to reflect the new game board dimensions and other params
+        self.game = self.SwineMeeperGame(self, num_rows, num_cols, num_bombs_to_add)
+        if self.debug_mode: self.gui.lbl_debug.grid(row=2, column=0, columnspan=3)
 
-        # self.gui.lbl_debug.destroy()
-        # self.gui.lbl_debug = tk.Label(master=self.gui.root, textvariable=self.gui.debug_label_text, font=('Arial 16'), justify='left', anchor='w')
-        
-        self.game = self.SwineMeeperGame(num_rows, num_cols, num_bombs_to_add, maybe_flag_enabled)
-        if self.debug_mode:
-            self.gui.lbl_debug.grid(row=2, column=0, columnspan=3)
+        self.timer.stop_and_reset_timer()
 
+        self.gui.frame_cell_grid.destroy()
         self.gui.frame_cell_grid = self.gui.create_frame_cell_grid()
-
+        self.gui.frame_cell_grid.grid(row=1, column=0, columnspan=3, pady=5)
 
 
     class SwineMeeperGame:
@@ -48,11 +48,11 @@ class SwineMeeperGameManager:
         GAME_STATUS_WON = 'Won'
         GAME_STATUS_INIT = 'INIT'
 
-        def __init__(self, parent, num_rows, num_cols, num_bombs_to_add, maybe_flag_enabled): 
+        def __init__(self, parent, num_rows, num_cols, num_bombs_to_add): 
             self.parent = parent
 
             if self.parent.debug_mode: 
-                print('SwineMeeperGame game\nStarting Parameters: {num_rows} rows x {num_cols} with {num_bombs_to_add} bombs')
+                print(f'SwineMeeperGame game\nStarting Parameters: {num_rows} rows x {num_cols} with {num_bombs_to_add} bombs')
     
             if num_rows*num_cols >= self.parent.RECURSION_LIMIT:
                 raise ValueError('Too many cells!')
@@ -65,7 +65,6 @@ class SwineMeeperGameManager:
             self.num_rows = num_rows
             self.num_cols = num_cols
             self.num_bombs = 0 # this is the number of bombs that have been placed by the game, and not necessarily num_bombs_to_add
-            self.maybe_flag_enabled = maybe_flag_enabled
             self.board = {} # a dictionary containing all the individual cell objects (logical units, not the gui buttons)
             
             # Create a dictionary represneting a 2D array of blank cells that will contain pertinent info (address, bomb status, number of neighbor bombs, image that should be displayed)
@@ -170,12 +169,10 @@ class SwineMeeperGameManager:
             if victory:
                 self.game_status = self.GAME_STATUS_WON
                 if self.parent.debug_mode: print('YOU WIN!')
-                #self.root.aftercancel(self.gui.loop)
 
             else:
                 self.game_status = self.GAME_STATUS_LOST
                 if self.parent.debug_mode: print('YOU LOSE')
-
 
 
         def toggle_flag(self, cell_coords):  # aka right click
@@ -190,12 +187,12 @@ class SwineMeeperGameManager:
                     new_status = self.SwineMeeperCell.CELL_STATUS_FLAG
 
                 elif old_status == self.SwineMeeperCell.CELL_STATUS_FLAG:
-                    if self.maybe_flag_enabled:
+                    if self.parent.maybe_flag_enabled:
                         new_status = self.SwineMeeperCell.CELL_STATUS_FLAG_MAYBE
                     else:
                         new_status = self.SwineMeeperCell.CELL_STATUS_HIDDEN
 
-                elif old_status == self.SwineMeeperCell.CELL_STATUS_FLAG_MAYBE:
+                elif old_status == self.SwineMeeperCell.CELL_STATUS_FLAG_MAYBE: # check even if not maybe_flag_enabled, as the value may have changed mid-game
                     new_status = self.SwineMeeperCell.CELL_STATUS_HIDDEN
                             
                 self.board[row, col].status = new_status
@@ -443,11 +440,12 @@ class SwineMeeperGameManager:
                 self.is_running = False
                 self.time_stopped = time.time()
 
-        def restart_timer(self):
-            if self.is_running:
-                if self.parent.debug_mode: print(f'Resetting timer')
-                self.time_started = 0
-                self.time_stopped = 0
+        def stop_and_reset_timer(self):
+            if self.parent.debug_mode: print(f'Resetting timer')
+            
+            self.is_running = False
+            self.time_started = 0
+            self.time_stopped = 0
 
         def resume_timer(self):
             if not self.is_running:
@@ -470,17 +468,18 @@ class SwineMeeperGameManager:
     class SwineMeeperGUI:
         def __init__(self, parent):
             # print('SwineMeeperGUI init')
-            
-            self.root = tk.Tk()
             self.parent = parent
+
+            self.root = tk.Tk()
+            self.root.protocol('WM_DELETE_WINDOW', self.on_delete_window) # behavior when the window is closed (eg by clicking the X button)
             
             self.assets = self.SM_Assets(r'C:\Users\thema\Documents\Python Scripts\swinemeeper\assets\\') # TODO TEMP! 
             
-            self.root.title("SwineMeeper")
+            self.root.title('SwineMeeper')
             self.root.config(menu=self.create_menu_bar(self.root))
 
             self.CYCLE_SPEED = 30 # desired delay in game loop (in ms)
-            self.FPS_TARGET = 24 # desired frames per second
+            self.FPS_TARGET = 35 # desired frames per second
             
             self.render_timestamp = time.time() # time we last updated the gui
             self.refresh_check_timestamp = 0 # last time a cycle was initiated.. hoping to use for FPS improvement
@@ -499,7 +498,7 @@ class SwineMeeperGameManager:
             self.clock_label_text.set('000')
             self.bomb_counter_text.set('000')            
             
-            self.btn_start = tk.Button(master=self.root, image=self.assets.img_happy, command=self.restart_game)
+            self.btn_start = tk.Button(master=self.root, image=self.assets.img_happy, command=self.restart_game) # clicking the smiley face will always start a new game with the same settings as the current game
             self.lbl_clock = tk.Label(master=self.root, textvariable=self.clock_label_text, font=('Stencil 24'))
             self.lbl_bomb_counter = tk.Label(master=self.root, textvariable=self.bomb_counter_text, font=('Stencil 24'))
             
@@ -507,18 +506,27 @@ class SwineMeeperGameManager:
 
             self.debug_label_text = tk.StringVar() # A label w/ performance stats used for debugging purposes
             self.debug_label_text.set('')
-            self.lbl_debug = tk.Label(master=self.root, textvariable=self.debug_label_text, font=('Arial 16'), justify='left', anchor='w')
+            self.lbl_debug = tk.Label(master=self.root, textvariable=self.debug_label_text, font=('Arial 14'), justify='left', anchor='w')
             
-
             self.lbl_clock.grid(row=0, column=0) #, sticky = tk.W)
             self.btn_start.grid(row=0, column=1)
             self.lbl_bomb_counter.grid(row=0, column=2)
             self.frame_cell_grid.grid(row=1, column=0, columnspan=3, pady=5)
             
-            if self.parent.debug_mode:
-                self.lbl_debug.grid(row=2, column=0, columnspan=3)
-             
+            #if self.parent.debug_mode:
+            self.lbl_debug.grid(row=2, column=0, columnspan=3)
+
             self.game_loop() # start the game cycle!
+                    
+
+        def on_delete_window(self):
+            if self.parent.confirm_on_exit:
+                if messagebox.askokcancel('Exit', 'Do you want to quit?'):
+                    self.root.after_cancel(self.root.after_id)
+                    self.root.destroy()
+            else:
+                self.root.after_cancel(self.root.after_id)
+                self.root.destroy()
 
         def create_frame_cell_grid(self):
             f_grid = tk.Frame(master=self.root)
@@ -560,12 +568,12 @@ class SwineMeeperGameManager:
 
         def game_loop(self):
             self.refresh_check_timestamp = time.time()
-            if not self.parent.game.game_status in (self.parent.game.GAME_STATUS_WON, self.parent.game.GAME_STATUS_LOST):
-                if self.parent.game.game_status not in (self.parent.game.GAME_STATUS_INIT):    
-                    self.refresh_checks_elapsed += 1
-                    time_since_render =  time.time() - self.render_timestamp
-                    if time_since_render >= 1.0/self.FPS_TARGET:
-                        self.render_gui()
+            #if not self.parent.game.game_status in (self.parent.game.GAME_STATUS_WON, self.parent.game.GAME_STATUS_LOST):
+            if self.parent.game.game_status not in (self.parent.game.GAME_STATUS_INIT):    
+                self.refresh_checks_elapsed += 1
+                time_since_render =  time.time() - self.render_timestamp
+                if time_since_render >= 1.0/self.FPS_TARGET:
+                    self.render_gui()
 
                 time_to_render = (time.time() - self.refresh_check_timestamp)*1000 # in ms
                 next_cycle_time = max(int(self.CYCLE_SPEED - time_to_render),0)
@@ -575,12 +583,139 @@ class SwineMeeperGameManager:
 
                 # else:
                 #     if self.parent.debug_mode: print('game is still loading - not time to render yet')
-            else:
-                #self.root.after_cancel(self.game_loop)
-                if self.parent.debug_mode: print('this is the end')
-                self.render_gui()
+            # else:
+            #     #self.root.after_cancel(self.game_loop)
+            #     if self.parent.debug_mode: print('this is the end')
+            #     self.render_gui()
+                
+            #     self.root.after_cancel(self.root.after_id)
+            #     # tk.after_cancel(self.loop)
+
+        class SettingsWindow: # an instance of a top level window showing user options.. upon 'ok' buttoning it, underlying gamemanager settings are updated (though game settings won't update until after a game restart)
+            # TODO 1 - pick better default options.. 
             
-                # tk.after_cancel(self.loop)
+            # TODO 1.1 maybe dropdown for 'size' and a separate tkk counter widget thingy for num bombs 
+            # instead of 3 hard-coded scenarios, how about populating from a dict and adding dynamic labels, eg:
+            # o   Scenario              Size        Bombs
+            #   |----Dropdown:                        ----|
+            #   - Small (Easy)          8x8         6
+            #   - Small (Hard)          8x8         20
+            #   - Medium (Easy)         14x14       40
+            #   - etc --- 
+            # 
+            # o Custom
+            #   Rows    Columns Bombs
+            #   |____|  |____|  |____|
+            #
+            #       ApplyBtn    CancelBtn
+            
+            # TODO 2 error check custom values - must be positive integers, cols*rows must be less than self.parent.parent.RECURSION_LIMIT, numb_bombs must be less than rows*cols
+
+            # TODO 3 GUI behavior:
+            #   Whenever a custom Entry is activated or edited, the custom radio button must be selected
+            #   the the custom Entry fields should be greyed out (but still active) when the custom radio button is not selected, 
+            #   and un-greyed out whenever it is activated (wheter by click or by activating/editing 1 of the 3 Entries)
+
+
+            DIFFICULTY_VAL_EASY = 1
+            DIFFICULTY_VAL_MED  = 2
+            DIFFICULTY_VAL_HARD = 3
+            DIFFICULTY_VAL_CUST = 4
+            
+            def __init__(self, parent):
+                self.parent = parent
+                
+                self.settings_window = tk.Toplevel(self.parent.root)
+                self.settings_window.title('Game Settings')
+                #self.settings_window.geometry('500x250')
+
+                self.frame_difficulty = tk.Frame(self.settings_window)
+                self.frame_diff_cust = tk.Frame(self.frame_difficulty) # the text Entries and corresponding labels for custom difficulty
+
+                self.difficulty = tk.IntVar()
+                self.difficulty.set(self.DIFFICULTY_VAL_EASY)
+
+                self.diff_easy = tk.Radiobutton(self.frame_difficulty, variable=self.difficulty, justify=tk.LEFT, anchor='w', value=self.DIFFICULTY_VAL_EASY, text='Easy')
+                self.diff_med  = tk.Radiobutton(self.frame_difficulty, variable=self.difficulty, justify=tk.LEFT, anchor='w', value=self.DIFFICULTY_VAL_MED, text='Medium')
+                self.diff_hard = tk.Radiobutton(self.frame_difficulty, variable=self.difficulty, justify=tk.LEFT, anchor='w', value=self.DIFFICULTY_VAL_HARD, text='Hard')
+                self.diff_cust = tk.Radiobutton(self.frame_difficulty, variable=self.difficulty, justify=tk.LEFT, anchor='w', value=self.DIFFICULTY_VAL_CUST, text='Custom')
+
+                self.var_cust_rows = tk.StringVar()
+                self.var_cust_cols = tk.StringVar()
+                self.var_cust_bomb = tk.StringVar()
+                
+                self.lbl_cust_rows = tk.Label(self.frame_diff_cust, text='Rows')
+                self.lbl_cust_cols = tk.Label(self.frame_diff_cust, text='Cols')
+                self.lbl_cust_bomb = tk.Label(self.frame_diff_cust, text='Bombs')
+                self.diff_cust_rows = tk.Entry(self.frame_diff_cust, textvariable=self.var_cust_rows, width=5) #TODO look into exportselection - saw note that claims default is, copy value to clipboard when text is selected.. set exportselection=0 to prevent
+                self.diff_cust_cols = tk.Entry(self.frame_diff_cust, textvariable=self.var_cust_cols, width=5)
+                self.diff_cust_bomb = tk.Entry(self.frame_diff_cust, textvariable=self.var_cust_bomb, width=5)
+
+                # Starting values for the custom option will mimic the game in progress
+                self.var_cust_rows.set(self.parent.parent.game.num_rows)
+                self.var_cust_cols.set(self.parent.parent.game.num_cols)
+                self.var_cust_bomb.set(self.parent.parent.game.num_bombs)
+
+                self.diff_easy.grid(row=0, column=0, sticky='w')
+                self.diff_med.grid(row=1, column=0, sticky='w')
+                self.diff_hard.grid(row=2, column=0, sticky='w')
+                self.diff_cust.grid(row=3, column=0, sticky='w')
+
+                self.lbl_cust_rows.grid(row=0, column=0, sticky='w')
+                self.lbl_cust_cols.grid(row=0, column=1, sticky='w')
+                self.lbl_cust_bomb.grid(row=0, column=2, sticky='w')
+                self.diff_cust_rows.grid(row=1, column=0, padx=5, sticky='w')
+                self.diff_cust_cols.grid(row=1, column=1, padx=5, sticky='w')
+                self.diff_cust_bomb.grid(row=1, column=2, padx=5, sticky='w')
+                
+                self.frame_diff_cust.grid(row=4, column=0, sticky='w')
+                
+                self.frame_difficulty.grid(row=0, column=0, columnspan=3)
+                                
+                self.btn_apply_settings = tk.Button(master=self.settings_window, text='Apply Settings', command=self.apply_settings)
+                self.btn_apply_settings.grid(row=99, column=0, columnspan=2, pady=5)
+                
+                self.btn_cancel_settings = tk.Button(master=self.settings_window, text='Cancel', command=self.cancel_settings)
+                self.btn_cancel_settings.grid(row=99, column=3, pady=5)
+
+
+            def apply_settings(self):
+                if self.parent.parent.debug_mode: print('apply_settings')
+
+                # which radio button is selected
+                # if custom, a) validate entries and b) pass on values
+
+                # print(f'Difficulty: {self.difficulty.get()}\tCust values {self.var_cust_rows.get()}x{self.var_cust_cols.get()} cells with {self.var_cust_bomb.get()} bombs')
+
+                if self.difficulty.get() == self.DIFFICULTY_VAL_EASY:
+                    num_rows = 10
+                    num_cols = 10
+                    num_bombs = 10
+                elif self.difficulty.get() == self.DIFFICULTY_VAL_MED:
+                    num_rows = 15
+                    num_cols = 18
+                    num_bombs = 40
+                elif self.difficulty.get() == self.DIFFICULTY_VAL_HARD:
+                    num_rows = 18
+                    num_cols = 24
+                    num_bombs = 100
+                elif self.difficulty.get() == self.DIFFICULTY_VAL_CUST:
+                    num_rows = int(self.var_cust_rows.get())
+                    num_cols = int(self.var_cust_cols.get())
+                    num_bombs = int(self.var_cust_bomb.get())
+
+                    #TODO HERE VALIDATION ON INPUT
+                
+                else:
+                    raise ValueError('INVALID DIFFICULTY DETECTED')
+                    
+                #self.parent.restart_game()
+                self.parent.parent.start_or_restart_game(num_rows, num_cols, num_bombs)
+                self.settings_window.destroy()
+
+            
+            def cancel_settings(self): # destroy the top level window without updating anything
+                self.settings_window.destroy()
 
 
         class SM_Assets: # yay inner inner inner class!
@@ -618,38 +753,44 @@ class SwineMeeperGameManager:
 
         def create_menu_bar(self, root):
             menubar = tk.Menu(root)
+            
             filemenu = tk.Menu(menubar, tearoff=0)
-            filemenu.add_command(label="About", command=partial(self.open_about_window, root))
+            filemenu.add_command(label='New Game', command=self.restart_game)
             filemenu.add_separator()
-            filemenu.add_command(label="Exit", command=self.root.quit)
-            menubar.add_cascade(label="File", menu=filemenu)
+            filemenu.add_command(label='About', command=partial(self.open_about_window, root))
+            filemenu.add_separator()
+            filemenu.add_command(label='Exit', command=self.root.quit)
+            
             game_menu = tk.Menu(menubar, tearoff=0)
-            game_menu.add_command(label="Settings", command=partial(self.open_game_settings_window, root))
-            game_menu.add_command(label="Help", command=partial(self.open_help_window, root))
-            menubar.add_cascade(label="Game", menu=game_menu)
+            game_menu.add_command(label='Settings', command=partial(self.open_game_settings_window, root))
+            game_menu.add_command(label='Help', command=partial(self.open_help_window, root))
+            game_menu.add_command(label='Toggle Debug Mode', command=self.toggle_debug_menu)
+            
+            menubar.add_cascade(label='File', menu=filemenu)
+            menubar.add_cascade(label='Game', menu=game_menu)
 
             return menubar
         
+        def toggle_debug_menu(self):
+            self.parent.debug_mode = not self.parent.debug_mode
+
 
         def open_game_settings_window(self, root):
-            top= tk.Toplevel(root)
-            top.geometry("500x250")
-            top.title("Game Settings")
-            tk.Label(top, text= "Settings go here", font=('Stencil 24')).place(x=150,y=80)
+            self.SettingsWindow(self) #maybe not best practice - creates a top level window that will destroy itself upon closure (but we can't refer to it or see if one is already open)
 
 
         def open_help_window(self, root):
             top= tk.Toplevel(root)
-            top.geometry("500x250")
-            top.title("Help")
-            tk.Label(top, text= "Here's how to play SwineMeeper", font=('Helvetica 14 bold')).place(x=150,y=80)
+            top.geometry('500x250')
+            top.title('Help')
+            tk.Label(top, text= 'Here\'s how to play SwineMeeper', font=('Helvetica 14 bold')).place(x=150,y=80)
 
         
         def open_about_window(self, root):
             top= tk.Toplevel(root)
-            top.geometry("500x250")
-            top.title("About SwineMeeper")
-            tk.Label(top, text= "All About SwineMeeper", font=('Helvetica 14 bold')).place(x=150,y=80)
+            top.geometry('500x250')
+            top.title('About SwineMeeper')
+            tk.Label(top, text= 'All About SwineMeeper', font=('Helvetica 14 bold')).place(x=150,y=80)
 
     
         def CellButtonReleaseHandler(self, btn_coords, event):
@@ -670,11 +811,14 @@ class SwineMeeperGameManager:
                     #if self.parent.debug_mode: print('unCLICK')
                     self.last_action = 'unCLICK'
                 
-            self.render_gui()
        
     
         def render_gui(self):
-            if self.parent.debug_mode: self.debug_label_text.set(self.get_performance_stats())
+            
+            if self.parent.debug_mode: 
+                self.debug_label_text.set(self.get_performance_stats())
+            else:
+                self.debug_label_text.set('')
             
             self.frames_elapsed += 1
             self.render_timestamp = time.time()
@@ -697,28 +841,20 @@ class SwineMeeperGameManager:
             
 
         def restart_game(self):
-            print('Restarting game...')
-            print('(in progress)')
-            print('homework: https://stackoverflow.com/questions/55676339/reset-tkinter-window-restore-widgets')
+            if self.parent.debug_mode: print('Restarting game')
             
-            num_rows = 5
-            num_cols = 5 
-            num_bombs_to_add = 3
-            maybe_flag_enabled = True
+            num_rows = self.parent.game.num_rows
+            num_cols = self.parent.game.num_cols
+            num_bombs_to_add = self.parent.game.num_bombs
+
+            self.parent.start_or_restart_game(num_rows, num_cols, num_bombs_to_add)
             
             
-            self.root.after_cancel(self.root.after_id)
-
-            # self.loop = self.root.after_cancel(self.game_loop) #try again in (at least) X ms
-            # #self.parent.start_or_restart_game(num_rows, num_cols, num_bombs_to_add, maybe_flag_enabled)
-
-
-
-
 
 if __name__ == '__main__':
     game_manager = SwineMeeperGameManager()
     game_manager.gui.root.mainloop()
 
-    SwineMeeperGameManager().gui.root.mainloop()
+#    SwineMeeperGameManager().gui.root.mainloop()
+
 
