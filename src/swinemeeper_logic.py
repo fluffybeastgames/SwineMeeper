@@ -5,6 +5,7 @@ import tkinter as tk
 from tkinter import messagebox
 import time
 from functools import partial
+from settings import constants
 
 
 class SwineMeeperGameManager:
@@ -19,6 +20,8 @@ class SwineMeeperGameManager:
     def __init__(self):
         if self.DEFAULT_TO_DEBUG_MODE: print('SwineMeeperGameManager init')
         
+        self.lang = 'en' # which language to display to users. Default to English for now. Add to persistent user settings later.
+        
         self.debug_mode = self.DEFAULT_TO_DEBUG_MODE
         self.timer = self.SwineTimer(self)
         self.game = self.SwineMeeperGame(self, self.DEFAULT_NUM_ROWS, self.DEFAULT_NUM_COLS, self.DEFAULT_NUM_BOMBS) # create a default game to allow gui to connect to said elements
@@ -26,8 +29,7 @@ class SwineMeeperGameManager:
         self.confirm_on_exit = self.DEFAULT_CONFIRM_ON_EXIT # If true, a popup will ask you to confirm before destroying the tk application - TODO add toggle to gui and user settings
         self.maybe_flag_enabled = self.DEFAULT_INCL_MAYBE_FLAG # If true, right clicking a flag will turn it into a question mark, which can be left or right clicked on. Should be ok to dis/enable mid-game - TODO add toggle to gui and user settings        
         
-
-    #def start_or_restart_game(self,  num_rows=DEFAULT_NUM_ROWS, num_cols=DEFAULT_NUM_COLS, num_bombs_to_add=DEFAULT_NUM_BOMBS, maybe_flag_enabled=DEFAULT_INCL_MAYBE_FLAG):
+    
     def start_or_restart_game(self, num_rows, num_cols, num_bombs_to_add):
         self.debug_mode: print('start_or_restart_game() called!')
         
@@ -225,8 +227,7 @@ class SwineMeeperGameManager:
 
                 if self.board[cell_coords].contains_bomb:
                     if self.turn_count <= 1: # move bomb to a new location, recalculate neighbor counts, and reveal newly empty cell                        
-                        # TODO perhaps we should make this functionality optional? Add a checkbox to the options..
-
+                        # TODO  make this a menubar activated option (default to true)
                         self.add_bombs(1)
                         self.remove_bomb(cell_coords)
                         self.calculate_neighbors() # recalculate the neighbor account for all cells
@@ -360,9 +361,6 @@ class SwineMeeperGameManager:
 
 
 
-
-
-
         class SwineMeeperCell:
             
             CELL_STATUS_HIDDEN = 0 # available
@@ -475,7 +473,7 @@ class SwineMeeperGameManager:
             
             self.assets = self.SM_Assets(r'C:\Users\thema\Documents\Python Scripts\swinemeeper\assets\\') # TODO TEMP! 
             
-            self.root.title('SwineMeeper')
+            self.root.title(constants[self.parent.lang]['title'])
             self.root.config(menu=self.create_menu_bar(self.root))
 
             self.CYCLE_SPEED = 30 # desired delay in game loop (in ms)
@@ -521,7 +519,7 @@ class SwineMeeperGameManager:
 
         def on_delete_window(self):
             if self.parent.confirm_on_exit:
-                if messagebox.askokcancel('Exit', 'Do you want to quit?'):
+                if messagebox.askokcancel(constants[self.parent.lang]['prompt_confirm_exit_title'], constants[self.parent.lang]['prompt_confirm_exit_msg']):
                     self.root.after_cancel(self.root.after_id)
                     self.root.destroy()
             else:
@@ -625,11 +623,11 @@ class SwineMeeperGameManager:
             def __init__(self, parent):
                 self.parent = parent
                 
-                self.settings_window = tk.Toplevel(self.parent.root)
-                self.settings_window.title('Game Settings')
-                #self.settings_window.geometry('500x250')
+                self.wind_settingsow = tk.Toplevel(self.parent.root)
+                self.wind_settingsow.title(constants[self.parent.parent.lang]['wind_settings_title'])
+                #self.wind_settingsow.geometry('500x250')
 
-                self.frame_difficulty = tk.Frame(self.settings_window)
+                self.frame_difficulty = tk.Frame(self.wind_settingsow)
                 self.frame_diff_cust = tk.Frame(self.frame_difficulty) # the text Entries and corresponding labels for custom difficulty
 
                 self.difficulty = tk.IntVar()
@@ -644,9 +642,9 @@ class SwineMeeperGameManager:
                 self.var_cust_cols = tk.StringVar()
                 self.var_cust_bomb = tk.StringVar()
                 
-                self.lbl_cust_rows = tk.Label(self.frame_diff_cust, text='Rows')
-                self.lbl_cust_cols = tk.Label(self.frame_diff_cust, text='Cols')
-                self.lbl_cust_bomb = tk.Label(self.frame_diff_cust, text='Bombs')
+                self.lbl_cust_rows = tk.Label(self.frame_diff_cust, text=constants[self.parent.parent.lang]['wind_settings_rows'])
+                self.lbl_cust_cols = tk.Label(self.frame_diff_cust, text=constants[self.parent.parent.lang]['wind_settings_cols'])
+                self.lbl_cust_bomb = tk.Label(self.frame_diff_cust, text=constants[self.parent.parent.lang]['wind_settings_bombs'])
                 self.diff_cust_rows = tk.Entry(self.frame_diff_cust, textvariable=self.var_cust_rows, width=5) #TODO look into exportselection - saw note that claims default is, copy value to clipboard when text is selected.. set exportselection=0 to prevent
                 self.diff_cust_cols = tk.Entry(self.frame_diff_cust, textvariable=self.var_cust_cols, width=5)
                 self.diff_cust_bomb = tk.Entry(self.frame_diff_cust, textvariable=self.var_cust_bomb, width=5)
@@ -672,10 +670,10 @@ class SwineMeeperGameManager:
                 
                 self.frame_difficulty.grid(row=0, column=0, columnspan=3)
                                 
-                self.btn_apply_settings = tk.Button(master=self.settings_window, text='Apply Settings', command=self.apply_settings)
+                self.btn_apply_settings = tk.Button(master=self.wind_settingsow, text=constants[self.parent.parent.lang]['wind_settings_apply'], command=self.apply_settings)
                 self.btn_apply_settings.grid(row=99, column=0, columnspan=2, pady=5)
                 
-                self.btn_cancel_settings = tk.Button(master=self.settings_window, text='Cancel', command=self.cancel_settings)
+                self.btn_cancel_settings = tk.Button(master=self.wind_settingsow, text=constants[self.parent.parent.lang]['wind_settings_cancel'], command=self.cancel_settings)
                 self.btn_cancel_settings.grid(row=99, column=3, pady=5)
 
 
@@ -711,11 +709,11 @@ class SwineMeeperGameManager:
                     
                 #self.parent.restart_game()
                 self.parent.parent.start_or_restart_game(num_rows, num_cols, num_bombs)
-                self.settings_window.destroy()
+                self.wind_settingsow.destroy()
 
             
             def cancel_settings(self): # destroy the top level window without updating anything
-                self.settings_window.destroy()
+                self.wind_settingsow.destroy()
 
 
         class SM_Assets: # yay inner inner inner class!
@@ -751,42 +749,58 @@ class SwineMeeperGameManager:
                 self.cell_height = self.img_0.height() + self.MAGIC_NUM_TO_FIX_CELL_SIZE
             
 
-        def create_menu_bar(self, root):
+        def create_menu_bar(self, root):            
             menubar = tk.Menu(root)
             
             filemenu = tk.Menu(menubar, tearoff=0)
-            filemenu.add_command(label='New Game', command=self.restart_game)
+            filemenu.add_command(label=constants[self.parent.lang]['menu_new_game'], command=self.restart_game)
             filemenu.add_separator()
-            filemenu.add_command(label='About', command=partial(self.open_about_window, root))
+            filemenu.add_command(label=constants[self.parent.lang]['menu_about'], command=partial(self.open_wind_aboutow, root))
             filemenu.add_separator()
-            filemenu.add_command(label='Exit', command=self.root.quit)
+            filemenu.add_command(label=constants[self.parent.lang]['menu_exit'], command=self.root.quit)
             
             game_menu = tk.Menu(menubar, tearoff=0)
-            game_menu.add_command(label='Settings', command=partial(self.open_game_settings_window, root))
-            game_menu.add_command(label='Help', command=partial(self.open_help_window, root))
-            game_menu.add_command(label='Toggle Debug Mode', command=self.toggle_debug_menu)
+            game_menu.add_command(label=constants[self.parent.lang]['menu_settings'], command=partial(self.open_game_wind_settingsow, root))
+            game_menu.add_command(label=constants[self.parent.lang]['menu_help'], command=partial(self.open_help_window, root))
+            game_menu.add_command(label=constants[self.parent.lang]['menu_toggle_debug'], command=self.toggle_debug_menu)
+            game_menu.add_command(label=constants[self.parent.lang]['menu_toggle_debug'], command=self.toggle_debug_menu)
             
-            menubar.add_cascade(label='File', menu=filemenu)
-            menubar.add_cascade(label='Game', menu=game_menu)
+            lang_menu = tk.Menu(game_menu, tearoff=0)
+            langs = ['en', 'es', 'fr', 'nl']
+            for lang in langs:
+                lang_menu.add_command(label=constants[self.parent.lang][f'menu_lang_{lang}'], command=partial(self.set_language, lang))
 
+            game_menu.add_cascade(label=constants[self.parent.lang]['menu_cascade_language'], menu=lang_menu)
+
+
+            menubar.add_cascade(label=constants[self.parent.lang]['menu_cascade_file'], menu=filemenu)
+            menubar.add_cascade(label=constants[self.parent.lang]['menu_cascade_game'], menu=game_menu)
+
+            
             return menubar
         
+        def set_language(self, lang):
+            self.parent.lang = lang
+            print('TODO: self.parent.enforce_lang_change()')
+            #self.parent.enforce_lang_change()
+            
+
         def toggle_debug_menu(self):
             self.parent.debug_mode = not self.parent.debug_mode
 
 
-        def open_game_settings_window(self, root):
+        def open_game_wind_settingsow(self, root):
             self.SettingsWindow(self) #maybe not best practice - creates a top level window that will destroy itself upon closure (but we can't refer to it or see if one is already open)
 
 
         def open_help_window(self, root):
             top= tk.Toplevel(root)
             top.geometry('500x250')
-            top.title('Help')
-            tk.Label(top, text= 'Here\'s how to play SwineMeeper', font=('Helvetica 14 bold')).place(x=150,y=80)
+            top.title(constants[self.parent.lang]['wind_help_title'])
+            tk.Label(top, text= constants[self.parent.lang]['wind_help_text'], font=('Helvetica 14 bold')).place(x=150,y=80)
 
         
-        def open_about_window(self, root):
+        def open_wind_aboutow(self, root):
             top= tk.Toplevel(root)
             top.geometry('500x250')
             top.title('About SwineMeeper')
@@ -858,3 +872,5 @@ if __name__ == '__main__':
 #    SwineMeeperGameManager().gui.root.mainloop()
 
 
+####### game idea: a) place pills in weekly reminder box thingies, etc. (and challenge mode once you know game meachnics: diagnose the condition given the medicine shedule a la papers please.. base mode satisfying w/ 1-player-mancala-like gameplay loop
+# or is it '1' plaser? maybe a rival pharmacist or anti-caregiver [pet|butler|family member] that's trying to F with you?
