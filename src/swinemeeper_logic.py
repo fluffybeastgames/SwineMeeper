@@ -633,10 +633,10 @@ class SwineMeeperGameManager:
                 self.difficulty = tk.IntVar()
                 self.difficulty.set(self.DIFFICULTY_VAL_EASY)
 
-                self.diff_easy = tk.Radiobutton(self.frame_difficulty, variable=self.difficulty, justify=tk.LEFT, anchor='w', value=self.DIFFICULTY_VAL_EASY, text='Easy')
-                self.diff_med  = tk.Radiobutton(self.frame_difficulty, variable=self.difficulty, justify=tk.LEFT, anchor='w', value=self.DIFFICULTY_VAL_MED, text='Medium')
-                self.diff_hard = tk.Radiobutton(self.frame_difficulty, variable=self.difficulty, justify=tk.LEFT, anchor='w', value=self.DIFFICULTY_VAL_HARD, text='Hard')
-                self.diff_cust = tk.Radiobutton(self.frame_difficulty, variable=self.difficulty, justify=tk.LEFT, anchor='w', value=self.DIFFICULTY_VAL_CUST, text='Custom')
+                self.diff_easy = tk.Radiobutton(self.frame_difficulty, variable=self.difficulty, justify=tk.LEFT, anchor='w', value=self.DIFFICULTY_VAL_EASY, text=constants[self.parent.parent.lang]['difficulty_easy'])
+                self.diff_med  = tk.Radiobutton(self.frame_difficulty, variable=self.difficulty, justify=tk.LEFT, anchor='w', value=self.DIFFICULTY_VAL_MED, text=constants[self.parent.parent.lang]['difficulty_med'])
+                self.diff_hard = tk.Radiobutton(self.frame_difficulty, variable=self.difficulty, justify=tk.LEFT, anchor='w', value=self.DIFFICULTY_VAL_HARD, text=constants[self.parent.parent.lang]['difficulty_hard'])
+                self.diff_cust = tk.Radiobutton(self.frame_difficulty, variable=self.difficulty, justify=tk.LEFT, anchor='w', value=self.DIFFICULTY_VAL_CUST, text=constants[self.parent.parent.lang]['difficulty_cust'])
 
                 self.var_cust_rows = tk.StringVar()
                 self.var_cust_cols = tk.StringVar()
@@ -763,7 +763,7 @@ class SwineMeeperGameManager:
             game_menu.add_command(label=constants[self.parent.lang]['menu_settings'], command=partial(self.open_game_wind_settingsow, root))
             game_menu.add_command(label=constants[self.parent.lang]['menu_help'], command=partial(self.open_help_window, root))
             game_menu.add_command(label=constants[self.parent.lang]['menu_toggle_debug'], command=self.toggle_debug_menu)
-            game_menu.add_command(label=constants[self.parent.lang]['menu_toggle_debug'], command=self.toggle_debug_menu)
+    
             
             lang_menu = tk.Menu(game_menu, tearoff=0)
             langs = ['en', 'es', 'fr', 'nl']
@@ -781,8 +781,8 @@ class SwineMeeperGameManager:
         
         def set_language(self, lang):
             self.parent.lang = lang
-            print('TODO: self.parent.enforce_lang_change()')
-            #self.parent.enforce_lang_change()
+            self.root.config(menu=self.create_menu_bar(self.root)) #, title=constants[self.parent.lang]['title'])
+            
             
 
         def toggle_debug_menu(self):
@@ -797,14 +797,14 @@ class SwineMeeperGameManager:
             top= tk.Toplevel(root)
             top.geometry('500x250')
             top.title(constants[self.parent.lang]['wind_help_title'])
-            tk.Label(top, text= constants[self.parent.lang]['wind_help_text'], font=('Helvetica 14 bold')).place(x=150,y=80)
+            tk.Label(top, text=constants[self.parent.lang]['wind_help_text'], font=('Helvetica 14 bold')).place(x=150,y=80)
 
         
         def open_wind_aboutow(self, root):
             top= tk.Toplevel(root)
             top.geometry('500x250')
-            top.title('About SwineMeeper')
-            tk.Label(top, text= 'All About SwineMeeper', font=('Helvetica 14 bold')).place(x=150,y=80)
+            top.title(constants[self.parent.lang]['wind_about_title'])
+            tk.Label(top, text=constants[self.parent.lang]['wind_about_text'], font=('Helvetica 14 bold')).place(x=150,y=80)
 
     
         def CellButtonReleaseHandler(self, btn_coords, event):

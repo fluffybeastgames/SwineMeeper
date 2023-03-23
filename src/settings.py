@@ -24,36 +24,53 @@ constants['en'] = { # English (standard)
     'prompt_confirm_exit_title': 'Exit',
     'prompt_confirm_exit_msg' : 'Do you want to quit?',
     'menu_cascade_language': 'Language',
-
-    'menu_lang_en': 'English',
-    'menu_lang_fr': 'French (Française)',
-    'menu_lang_es': 'Spanish (Española)',
-    'menu_lang_nl': 'Dutch (Nederlands)'
+    'menu_lang_en': 'English (United States)',
+    'menu_lang_fr': 'Français (France)',
+    'menu_lang_es': 'Español (Español)',
+    'menu_lang_nl': 'Nederlands (Nederland)',
+    'difficulty': 'Difficulty',
+    'difficulty_easy': 'Easy',
+    'difficulty_med': 'Medium',
+    'difficulty_hard': 'Hard',
+    'difficulty_cust': 'Custom'
     
+
 }
 
 constants['fr'] = { # French (France)
-    'title': 'fr___SwineMeeper',
-    'menu_cascade_file': 'fr___File',
-    'menu_new_game': 'fr___New Game',
-    'menu_about': 'fr___About...',
-    'menu_exit': 'fr___Quit',
-    'menu_cascade_game': 'fr___Game',
-    'menu_settings': 'fr___Settings',
-    'menu_help': 'fr___Help',
-    'menu_toggle_debug': 'fr___Toggle Debug Mode',
-    'wind_about_title': 'fr___About SwineMeeper',
-    'wind_about_text': 'fr___All About SwineMeeper',
-    'wind_settings_title': 'fr___Game Settings',
-    'wind_settings_rows': 'fr___Rows',
-    'wind_settings_cols': 'fr___Cols',
-    'wind_settings_bombs': 'fr___Bombs',
-    'wind_settings_apply': 'fr___Apply Settings',
-    'wind_settings_cancel': 'fr___Cancel',
-    'wind_help_title': 'fr___Help',
+    'title': 'SwineMeeper',
+    'menu_cascade_file': 'Fichier',
+    'menu_new_game': 'Nouveu',
+    'menu_about': 'À propos du SwineMeeper',
+    'menu_exit': 'Quitter',
+    'menu_cascade_game': 'Jeu',
+    'menu_settings': 'Paramètres de Jeu',
+    'menu_help': 'Aide',
+    'menu_toggle_debug': 'Vue de Débogage',
+    'wind_about_title': 'À propos du SwineMeeper',
+    'wind_about_text': 'À propos du SwineMeeper',
+    'wind_settings_title': 'Paramètres de Jeu',
+    'wind_settings_rows': 'Lignes',
+    'wind_settings_cols': 'Colonnes',
+    'wind_settings_bombs': 'Bombes',
+    'wind_settings_apply': 'Appliquer les paramètres',
+    'wind_settings_cancel': 'Annuler',
+    'wind_help_title': 'Aide',
     'wind_help_text': 'fr___Here\'s how to play SwineMeeper',
-    'prompt_confirm_exit_title': 'fr___Exit',
-    'prompt_confirm_exit_msg' : 'fr___Do you want to quit?'
+    'prompt_confirm_exit_title': 'Quitter?',
+    'prompt_confirm_exit_msg' : 'Voulez-vous quitter le programme?',
+    'menu_cascade_language': 'Langue',
+    'menu_lang_en': 'English (United States)',
+    'menu_lang_fr': 'Français (France)',
+    'menu_lang_es': 'Español (Español)',
+    'menu_lang_nl': 'Nederlands (Nederland)',
+    'difficulty': 'Difficulté',
+    'difficulty_easy': 'Facile',
+    'difficulty_med': 'Moyen',
+    'difficulty_hard': 'Difficile',
+    'difficulty_cust': 'Coutume'
+    
+
 }
 
 constants['nl'] = { # Dutch (standard)
@@ -77,7 +94,19 @@ constants['nl'] = { # Dutch (standard)
     'wind_help_title': 'nl___Help',
     'wind_help_text': 'nl___Here\'s how to play SwineMeeper',
     'prompt_confirm_exit_title': 'nl___Exit',
-    'prompt_confirm_exit_msg' : 'nl___Do you want to quit?'
+    'prompt_confirm_exit_msg' : 'nl___Do you want to quit?',
+    'menu_cascade_language': 'nl___Language',
+    'menu_lang_en': 'English (United States)',
+    'menu_lang_fr': 'Français (France)',
+    'menu_lang_es': 'Español (Español)',
+    'menu_lang_nl': 'Nederlands (Nederland)',
+    'difficulty': 'nl___Easy',
+    'difficulty_easy': 'nl___Easy',
+    'difficulty_med': 'nl___Medium',
+    'difficulty_hard': 'nl___Hard',
+    'difficulty_cust': 'nl___Custom'
+    
+
 }
 
 
@@ -102,5 +131,17 @@ constants['es'] = { # Spanish (Spain)
     'wind_help_title': 'es___Help',
     'wind_help_text': 'es___Here\'s how to play SwineMeeper',
     'prompt_confirm_exit_title': 'es___Exit',
-    'prompt_confirm_exit_msg' : 'es___Do you want to quit?'
+    'prompt_confirm_exit_msg' : 'es___Do you want to quit?',
+    'menu_cascade_language': 'es___Language',
+    'menu_lang_en': 'English (United States)',
+    'menu_lang_fr': 'Français (France)',
+    'menu_lang_es': 'Español (Español)',
+    'menu_lang_nl': 'Nederlands (Nederland)',
+    'difficulty': 'es___Easy',
+    'difficulty_easy': 'es___Easy',
+    'difficulty_med': 'es___Medium',
+    'difficulty_hard': 'es___Hard',
+    'difficulty_cust': 'es___Custom'
+    
+
 }
