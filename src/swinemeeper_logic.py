@@ -5,7 +5,40 @@ import tkinter as tk
 from tkinter import messagebox
 import time
 from functools import partial
-from settings import constants
+from settings import strings
+import sqlite3
+import datetime as dt
+
+class SweepData:
+    def __init__(self):
+        # TODO check if DB directory exists.. if not, create it before opening connection
+        self.con = sqlite3.connect('..\data\meep.db') # The connection will create an empty db if it doesn't already exist
+        self.cur = self.con.cursor()
+
+
+        if self.cur.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='game_results'").fetchall() == []:
+            # table does not exist and therefore we need to create the db tables
+            
+            self.cur.execute('''CREATE TABLE users(user_id INTEGER NOT NULL PRIMARY KEY, display_name TEXT, default_language TEXT, default_debug_menu INTEGER, 
+                                default_tileset INTEGER, default_cust_rows INTEGER, default_cust_cols INTEGER, default_cust_bombs INTEGER, creation_date TIMESTAMP)''')
+            
+            self.cur.execute('''CREATE TABLE game_results(score_id INTEGER NOT NULL PRIMARY KEY, user_id INTEGER, display_name TEXT, 
+                                num_rows INTEGER, num_cols INTEGER, num_bombs INTEGER, score INTEGER, result TEXT, date TIMESTAMP)''')
+            
+            self.con.commit()
+            
+            default_profile = ('Enter Name', 'en', 0, 1, 9, 9, 10, dt.datetime.now())
+            sql = '''INSERT INTO users (display_name, default_language, default_debug_menu, default_tileset, 
+                    default_cust_rows, default_cust_cols, default_cust_bombs, creation_date) VALUES(?, ?, ?, ?, ?, ?, ?, ?)'''
+            self.cur.execute(sql, default_profile)
+            
+    def insert_score(self, user_id, display_name, num_rows, num_cols, num_bombs, score, result):
+        date = dt.datetime.now()
+        sql = 'INSERT INTO game_results (user_id, display_name, num_rows, num_cols, num_bombs, score, result, date) VALUES(?,?,?,?,?,?,?,?)'
+        vals = (user_id, display_name, num_rows, num_cols, num_bombs, score, result, date)
+        self.cur.execute(sql, vals)
+        self.con.commit()
+
 
 
 class SwineMeeperGameManager:
@@ -20,19 +53,28 @@ class SwineMeeperGameManager:
     def __init__(self):
         if self.DEFAULT_TO_DEBUG_MODE: print('SwineMeeperGameManager init')
         
-        self.lang = 'en' # which language to display to users. Default to English for now. Add to persistent user settings later.
-        
+        self.db = SweepData()
+
+        self.lang = 'en' # which language to display to users. Default to English for now. TODO Add to persistent user settings later.
+
         self.debug_mode = self.DEFAULT_TO_DEBUG_MODE
         self.timer = self.SwineTimer(self)
         self.game = self.SwineMeeperGame(self, self.DEFAULT_NUM_ROWS, self.DEFAULT_NUM_COLS, self.DEFAULT_NUM_BOMBS) # create a default game to allow gui to connect to said elements
         self.gui = self.SwineMeeperGUI(self)
+        self.gui.update_scoreboard()
+        
         self.confirm_on_exit = self.DEFAULT_CONFIRM_ON_EXIT # If true, a popup will ask you to confirm before destroying the tk application - TODO add toggle to gui and user settings
         self.maybe_flag_enabled = self.DEFAULT_INCL_MAYBE_FLAG # If true, right clicking a flag will turn it into a question mark, which can be left or right clicked on. Should be ok to dis/enable mid-game - TODO add toggle to gui and user settings        
         
     
     def start_or_restart_game(self, num_rows, num_cols, num_bombs_to_add):
         self.debug_mode: print('start_or_restart_game() called!')
-        
+    
+        if self.game is not None and self.game.game_status == self.game.GAME_STATUS_IN_PROGRESS:
+            
+            score = int(self.timer.get_elapsed_time())
+            self.db.insert_score(0, 'Zeke', self.game.num_rows, self.game.num_cols, self.game.num_bombs, score, self.game.GAME_STATUS_ABANDONED)
+            
         self.game = self.SwineMeeperGame(self, num_rows, num_cols, num_bombs_to_add)
         if self.debug_mode: self.gui.lbl_debug.grid(row=2, column=0, columnspan=3)
 
@@ -42,13 +84,15 @@ class SwineMeeperGameManager:
         self.gui.frame_cell_grid = self.gui.create_frame_cell_grid()
         self.gui.frame_cell_grid.grid(row=1, column=0, columnspan=3, pady=5)
 
+        self.gui.update_scoreboard()
 
     class SwineMeeperGame:
         GAME_STATUS_READY = 'Ready'
         GAME_STATUS_IN_PROGRESS = 'In Progress'
-        GAME_STATUS_LOST = 'Game Over'
+        GAME_STATUS_LOST = 'Lost'
         GAME_STATUS_WON = 'Won'
         GAME_STATUS_INIT = 'INIT'
+        GAME_STATUS_ABANDONED = 'Abandoned'
 
         def __init__(self, parent, num_rows, num_cols, num_bombs_to_add): 
             self.parent = parent
@@ -167,14 +211,24 @@ class SwineMeeperGameManager:
 
         def end_game(self, victory=False):
             self.parent.timer.pause_timer()
-
-            if victory:
-                self.game_status = self.GAME_STATUS_WON
+            
+            if self.game_status == self.GAME_STATUS_IN_PROGRESS:
+                if victory:
+                    self.game_status = self.GAME_STATUS_WON
+                else:
+                    self.game_status = self.GAME_STATUS_LOST
+                    if self.parent.debug_mode: print('YOU LOSE')
+                    
+                score = int(self.parent.timer.get_elapsed_time())
+                self.parent.db.insert_score(0, 'Zeke', self.num_rows, self.num_cols, self.num_bombs, score, self.game_status)
                 if self.parent.debug_mode: print('YOU WIN!')
-
-            else:
-                self.game_status = self.GAME_STATUS_LOST
-                if self.parent.debug_mode: print('YOU LOSE')
+                self.parent.gui.update_scoreboard()
+                
+                                    
+        def reset_render_check(self): # at the end of each turn, reset the list of which cells to animate in the next frame
+            for row in range(self.num_rows):
+                for col in range(self.num_cols):
+                    self.board[(row, col)].render_this_turn = False         
 
 
         def toggle_flag(self, cell_coords):  # aka right click
@@ -198,6 +252,7 @@ class SwineMeeperGameManager:
                     new_status = self.SwineMeeperCell.CELL_STATUS_HIDDEN
                             
                 self.board[row, col].status = new_status
+                self.board[row, col].render_this_turn = True
 
 
         def valid_target(self, row, col, maybe_flags_are_valid=False): 
@@ -216,7 +271,8 @@ class SwineMeeperGameManager:
 
         def expose_cell(self, cell_coords, was_clicked=True): # aka left click. If was_clicked=False then this cell was exposed by a neighbor recursively or through middle clicking
             cell_status = self.board[cell_coords].status
-
+            self.board[cell_coords].render_this_turn = True
+            
             if self.game_status in (self.GAME_STATUS_READY, self.GAME_STATUS_IN_PROGRESS) and cell_status in (self.SwineMeeperCell.CELL_STATUS_HIDDEN, self.SwineMeeperCell.CELL_STATUS_FLAG_MAYBE): # proceed
                 if self.game_status == self.GAME_STATUS_READY:
                     self.parent.timer.start_timer()
@@ -380,6 +436,7 @@ class SwineMeeperGameManager:
                 self.contains_bomb = False # can be modified later
                 self.neighbors = 0 # will be calculate later
                 self.status = self.CELL_STATUS_HIDDEN # all cells start unexposed
+                self.render_this_turn = True # for performance sake, only update cell appearance when appropriate. True at start to complete initial render
             
 
             def enabled(self):
@@ -462,7 +519,6 @@ class SwineMeeperGameManager:
                 return self.time_stopped - self.time_started
 
 
-
     class SwineMeeperGUI:
         def __init__(self, parent):
             # print('SwineMeeperGUI init')
@@ -473,7 +529,7 @@ class SwineMeeperGameManager:
             
             self.assets = self.SM_Assets(r'C:\Users\thema\Documents\Python Scripts\swinemeeper\assets\\') # TODO TEMP! 
             
-            self.root.title(constants[self.parent.lang]['title'])
+            self.root.title(strings.get_string('title'))
             self.root.config(menu=self.create_menu_bar(self.root))
 
             self.CYCLE_SPEED = 30 # desired delay in game loop (in ms)
@@ -492,15 +548,19 @@ class SwineMeeperGameManager:
            
             self.clock_label_text = tk.StringVar() # number of seconds elapsed since first cell was clicked
             self.bomb_counter_text = tk.StringVar() # Number of bombs - number of placed flags
-            
+            self.high_score_lbl_text = tk.StringVar() # The word 'High Score', in the current language
+
             self.clock_label_text.set('000')
             self.bomb_counter_text.set('000')            
+            self.high_score_lbl_text.set(strings.get_string('scoreboard_header'))            
             
             self.btn_start = tk.Button(master=self.root, image=self.assets.img_happy, command=self.restart_game) # clicking the smiley face will always start a new game with the same settings as the current game
             self.lbl_clock = tk.Label(master=self.root, textvariable=self.clock_label_text, font=('Stencil 24'))
             self.lbl_bomb_counter = tk.Label(master=self.root, textvariable=self.bomb_counter_text, font=('Stencil 24'))
+            self.lbl_score_header = tk.Label(master=self.root, textvariable=self.high_score_lbl_text, font=('Stencil 24'))
             
             self.frame_cell_grid = self.create_frame_cell_grid()
+            self.frame_scoreboard = self.create_frame_scoreboard()
 
             self.debug_label_text = tk.StringVar() # A label w/ performance stats used for debugging purposes
             self.debug_label_text.set('')
@@ -509,17 +569,26 @@ class SwineMeeperGameManager:
             self.lbl_clock.grid(row=0, column=0) #, sticky = tk.W)
             self.btn_start.grid(row=0, column=1)
             self.lbl_bomb_counter.grid(row=0, column=2)
-            self.frame_cell_grid.grid(row=1, column=0, columnspan=3, pady=5)
+            self.frame_cell_grid.grid(row=1, column=0, columnspan=3, pady=5, padx=(50, 25))
+            self.lbl_score_header.grid(row=0, column=3, columnspan=1, pady=5, sticky='news')
+            self.frame_scoreboard.grid(row=1, column=3, columnspan=1, pady=5, padx=(25,50), sticky='news')
             
             #if self.parent.debug_mode:
             self.lbl_debug.grid(row=2, column=0, columnspan=3)
-
+            
+            self.apply_bindings() # add keyboard shortcuts to New Game, Quit, and possibly more
             self.game_loop() # start the game cycle!
                     
-
+        def apply_bindings(self):
+            #self.root.bind('<MouseWheel>', self.zoom_wheel_handler) # Windows OS support
+            self.root.bind('<Control-Q>', self.quit_game)
+            self.root.bind('<Control-q>', self.quit_game)
+            self.root.bind('<Control-n>', self.restart_game)          
+            self.root.bind('<Control-N>', self.restart_game)                  
+            
         def on_delete_window(self):
             if self.parent.confirm_on_exit:
-                if messagebox.askokcancel(constants[self.parent.lang]['prompt_confirm_exit_title'], constants[self.parent.lang]['prompt_confirm_exit_msg']):
+                if messagebox.askokcancel(strings.get_string('prompt_confirm_exit_title'), strings.get_string('prompt_confirm_exit_msg')):
                     self.root.after_cancel(self.root.after_id)
                     self.root.destroy()
             else:
@@ -531,12 +600,63 @@ class SwineMeeperGameManager:
             f_grid.board_cell_buttons = {}
 
             for i in range(self.parent.game.num_rows):
-                for j in range(self.parent.game.num_cols)    :
+                for j in range(self.parent.game.num_cols):
                     f_grid.board_cell_buttons[(i, j)] = tk.Button(master=f_grid, image=self.assets.img_hidden) # add cell to the dictionary and establish default behavior
                     f_grid.board_cell_buttons[(i, j)].grid(row=i, column=j) # place the cell in the frame
                     f_grid.board_cell_buttons[(i, j)].bind('<ButtonRelease>', partial(self.CellButtonReleaseHandler,(i , j))) # add a mouse handler to deal with user input
             
             return f_grid
+
+
+        def create_frame_scoreboard(self):
+            f = tk.Frame(master=self.root)
+            num_results_to_show = 10
+            
+            font_head = ('Stencil 20')
+            font_body = ('Stencil 12')
+     
+            f.lbls = {}
+           
+            f.lbls['header_num'] = tk.Label(f, text=f'#', font=font_head).grid(row=0, column=0, padx=5)
+            f.lbls['header_name'] = tk.Label(f, text=strings.get_string('scoreboard_name'), font=font_head).grid(row=0, column=1, padx=20)
+            f.lbls['header_time'] = tk.Label(f, text=strings.get_string('scoreboard_score'), font=font_head).grid(row=0, column=2, padx=5)
+            f.lbls['header_date'] = tk.Label(f, text=strings.get_string('scoreboard_date'), font=font_head).grid(row=0, column=3, padx=5)
+       
+            for i in range(num_results_to_show):
+                f.lbls[f'rank_{i}'] = tk.Label(f, text=f'{i+1}', font=font_body, borderwidth=2, relief='ridge')
+                f.lbls[f'name_{i}'] = tk.Label(f, text=f'', font=font_body, borderwidth=2, relief='ridge')
+                f.lbls[f'score_{i}'] = tk.Label(f, text=f'', font=font_body, borderwidth=2, relief='ridge')
+                f.lbls[f'date_{i}'] = tk.Label(f, text=f'', font=font_body, borderwidth=2, relief='ridge')
+                
+                f.lbls[f'rank_{i}'].grid(row=i+1, column=0, sticky='news')
+                f.lbls[f'name_{i}'].grid(row=i+1, column=1, sticky='news')
+                f.lbls[f'score_{i}'].grid(row=i+1, column=2, sticky='news')
+                f.lbls[f'date_{i}'].grid(row=i+1, column=3, sticky='news')
+                
+            return f
+        
+        def update_scoreboard(self):
+            sql = f'''SELECT display_name, score, date FROM game_results where result='{self.parent.game.GAME_STATUS_WON}' 
+                        and num_rows={self.parent.game.num_rows} and num_cols={self.parent.game.num_cols} and num_bombs={self.parent.game.num_bombs} 
+                        ORDER BY score ASC, date DESC LIMIT 10'''
+            self.parent.db.cur.execute(sql)
+            results = self.parent.db.cur.fetchall()
+
+            for i in range(10): # just in case we somehow query too many results
+                if i < len(results):
+                    name = results[i][0]
+                    score = results[i][1]
+                    date = results[i][2][0:10]
+                else:
+                    name = ''
+                    score = ''
+                    date = ''
+                    
+                self.frame_scoreboard.lbls[f'name_{i}'].config(text=name)
+                self.frame_scoreboard.lbls[f'score_{i}'].config(text=score)
+                self.frame_scoreboard.lbls[f'date_{i}'].config(text=date)
+
+
         
         def get_performance_stats(self):
             game = self.parent.game # convenience ref var
@@ -572,6 +692,8 @@ class SwineMeeperGameManager:
                 time_since_render =  time.time() - self.render_timestamp
                 if time_since_render >= 1.0/self.FPS_TARGET:
                     self.render_gui()
+                    self.parent.game.reset_render_check()
+                    
 
                 time_to_render = (time.time() - self.refresh_check_timestamp)*1000 # in ms
                 next_cycle_time = max(int(self.CYCLE_SPEED - time_to_render),0)
@@ -624,28 +746,28 @@ class SwineMeeperGameManager:
                 self.parent = parent
                 
                 self.wind_settingsow = tk.Toplevel(self.parent.root)
-                self.wind_settingsow.title(constants[self.parent.parent.lang]['wind_settings_title'])
-                #self.wind_settingsow.geometry('500x250')
+                self.wind_settingsow.title(strings.get_string('wind_settings_title'))
+                self.wind_settingsow.geometry('500x250')
 
                 self.frame_difficulty = tk.Frame(self.wind_settingsow)
-                self.frame_diff_cust = tk.Frame(self.frame_difficulty) # the text Entries and corresponding labels for custom difficulty
+                self.frame_diff_cust = tk.LabelFrame(self.frame_difficulty, text='') # the text Entries and corresponding labels for custom difficulty
 
                 self.difficulty = tk.IntVar()
                 self.difficulty.set(self.DIFFICULTY_VAL_EASY)
 
-                self.diff_easy = tk.Radiobutton(self.frame_difficulty, variable=self.difficulty, justify=tk.LEFT, anchor='w', value=self.DIFFICULTY_VAL_EASY, text=constants[self.parent.parent.lang]['difficulty_easy'])
-                self.diff_med  = tk.Radiobutton(self.frame_difficulty, variable=self.difficulty, justify=tk.LEFT, anchor='w', value=self.DIFFICULTY_VAL_MED, text=constants[self.parent.parent.lang]['difficulty_med'])
-                self.diff_hard = tk.Radiobutton(self.frame_difficulty, variable=self.difficulty, justify=tk.LEFT, anchor='w', value=self.DIFFICULTY_VAL_HARD, text=constants[self.parent.parent.lang]['difficulty_hard'])
-                self.diff_cust = tk.Radiobutton(self.frame_difficulty, variable=self.difficulty, justify=tk.LEFT, anchor='w', value=self.DIFFICULTY_VAL_CUST, text=constants[self.parent.parent.lang]['difficulty_cust'])
+                self.diff_easy = tk.Radiobutton(self.frame_difficulty, variable=self.difficulty, justify=tk.LEFT, anchor='w', value=self.DIFFICULTY_VAL_EASY, text=strings.get_string('difficulty_easy'))
+                self.diff_med  = tk.Radiobutton(self.frame_difficulty, variable=self.difficulty, justify=tk.LEFT, anchor='w', value=self.DIFFICULTY_VAL_MED, text=strings.get_string('difficulty_med'))
+                self.diff_hard = tk.Radiobutton(self.frame_difficulty, variable=self.difficulty, justify=tk.LEFT, anchor='w', value=self.DIFFICULTY_VAL_HARD, text=strings.get_string('difficulty_hard'))
+                self.diff_cust = tk.Radiobutton(self.frame_difficulty, variable=self.difficulty, justify=tk.LEFT, anchor='w', value=self.DIFFICULTY_VAL_CUST, text=strings.get_string('difficulty_cust'))
 
                 self.var_cust_rows = tk.StringVar()
                 self.var_cust_cols = tk.StringVar()
                 self.var_cust_bomb = tk.StringVar()
                 
-                self.lbl_cust_rows = tk.Label(self.frame_diff_cust, text=constants[self.parent.parent.lang]['wind_settings_rows'])
-                self.lbl_cust_cols = tk.Label(self.frame_diff_cust, text=constants[self.parent.parent.lang]['wind_settings_cols'])
-                self.lbl_cust_bomb = tk.Label(self.frame_diff_cust, text=constants[self.parent.parent.lang]['wind_settings_bombs'])
-                self.diff_cust_rows = tk.Entry(self.frame_diff_cust, textvariable=self.var_cust_rows, width=5) #TODO look into exportselection - saw note that claims default is, copy value to clipboard when text is selected.. set exportselection=0 to prevent
+                self.lbl_cust_rows = tk.Label(self.frame_diff_cust, text=strings.get_string('wind_settings_rows'))
+                self.lbl_cust_cols = tk.Label(self.frame_diff_cust, text=strings.get_string('wind_settings_cols'))
+                self.lbl_cust_bomb = tk.Label(self.frame_diff_cust, text=strings.get_string('wind_settings_bombs'))
+                self.diff_cust_rows = tk.Entry(self.frame_diff_cust, textvariable=self.var_cust_rows, width=5) #TODO look into exportselection - saw note that claims default is, copy value to clipboard when text is selected.. set exportselection=0 to prevent                
                 self.diff_cust_cols = tk.Entry(self.frame_diff_cust, textvariable=self.var_cust_cols, width=5)
                 self.diff_cust_bomb = tk.Entry(self.frame_diff_cust, textvariable=self.var_cust_bomb, width=5)
 
@@ -659,23 +781,40 @@ class SwineMeeperGameManager:
                 self.diff_hard.grid(row=2, column=0, sticky='w')
                 self.diff_cust.grid(row=3, column=0, sticky='w')
 
-                self.lbl_cust_rows.grid(row=0, column=0, sticky='w')
-                self.lbl_cust_cols.grid(row=0, column=1, sticky='w')
-                self.lbl_cust_bomb.grid(row=0, column=2, sticky='w')
-                self.diff_cust_rows.grid(row=1, column=0, padx=5, sticky='w')
-                self.diff_cust_cols.grid(row=1, column=1, padx=5, sticky='w')
-                self.diff_cust_bomb.grid(row=1, column=2, padx=5, sticky='w')
+                self.lbl_cust_rows.grid(row=0, column=0, padx=15, pady=3, sticky='w')
+                self.lbl_cust_cols.grid(row=0, column=1, padx=15, pady=3, sticky='w')
+                self.lbl_cust_bomb.grid(row=0, column=2, padx=15, pady=3, sticky='w')
+                self.diff_cust_rows.grid(row=1, column=0, padx=15, pady=8, sticky='w')
+                self.diff_cust_cols.grid(row=1, column=1, padx=15, pady=8, sticky='w')
+                self.diff_cust_bomb.grid(row=1, column=2, padx=15, pady=8, sticky='w')
                 
-                self.frame_diff_cust.grid(row=4, column=0, sticky='w')
+                self.frame_diff_cust.grid(row=4, column=0, padx=25) # sticky='w')
                 
                 self.frame_difficulty.grid(row=0, column=0, columnspan=3)
                                 
-                self.btn_apply_settings = tk.Button(master=self.wind_settingsow, text=constants[self.parent.parent.lang]['wind_settings_apply'], command=self.apply_settings)
+                self.btn_apply_settings = tk.Button(master=self.wind_settingsow, text=strings.get_string('wind_settings_apply'), command=self.apply_settings)
                 self.btn_apply_settings.grid(row=99, column=0, columnspan=2, pady=5)
                 
-                self.btn_cancel_settings = tk.Button(master=self.wind_settingsow, text=constants[self.parent.parent.lang]['wind_settings_cancel'], command=self.cancel_settings)
+                self.btn_cancel_settings = tk.Button(master=self.wind_settingsow, text=strings.get_string('wind_settings_cancel'), command=self.cancel_settings)
                 self.btn_cancel_settings.grid(row=99, column=3, pady=5)
 
+
+# # label frame
+# lf = ttk.LabelFrame(root, text='Alignment')
+# lf.grid(column=0, row=0, padx=20, pady=20)
+
+# alignment_var = tk.StringVar()
+# alignments = ('Left', 'Center', 'Right')
+
+# # create radio buttons and place them on the label frame
+
+# grid_column = 0
+# for alignment in alignments:
+#     # create a radio button
+#     radio = ttk.Radiobutton(lf, text=alignment, value=alignment, variable=alignment_var)
+#     radio.grid(column=grid_column, row=0, ipadx=10, ipady=10)
+#     # grid column
+#     grid_column += 1
 
             def apply_settings(self):
                 if self.parent.parent.debug_mode: print('apply_settings')
@@ -745,6 +884,9 @@ class SwineMeeperGameManager:
                 self.extra_happy    = tk.PhotoImage(file=f'{dir_img}extra_happy_button.gif') 
                 self.img_unsure     = tk.PhotoImage(file=f'{dir_img}unsure_button.gif') 
 
+                # Decoration
+                self.img_left_pane = tk.PhotoImage(file=f'{dir_img}left_pane.gif') 
+
                 self.cell_width = self.img_0.width() + self.MAGIC_NUM_TO_FIX_CELL_SIZE # assumes all cell images are identically sized
                 self.cell_height = self.img_0.height() + self.MAGIC_NUM_TO_FIX_CELL_SIZE
             
@@ -753,35 +895,41 @@ class SwineMeeperGameManager:
             menubar = tk.Menu(root)
             
             filemenu = tk.Menu(menubar, tearoff=0)
-            filemenu.add_command(label=constants[self.parent.lang]['menu_new_game'], command=self.restart_game)
+            filemenu.add_command(label=strings.get_string('menu_new_game'), command=self.restart_game)
             filemenu.add_separator()
-            filemenu.add_command(label=constants[self.parent.lang]['menu_about'], command=partial(self.open_wind_aboutow, root))
+            filemenu.add_command(label=strings.get_string('menu_about'), command=partial(self.open_wind_aboutow, root))
             filemenu.add_separator()
-            filemenu.add_command(label=constants[self.parent.lang]['menu_exit'], command=self.root.quit)
+            filemenu.add_command(label=strings.get_string('menu_exit'), command=self.quit_game)
             
             game_menu = tk.Menu(menubar, tearoff=0)
-            game_menu.add_command(label=constants[self.parent.lang]['menu_settings'], command=partial(self.open_game_wind_settingsow, root))
-            game_menu.add_command(label=constants[self.parent.lang]['menu_help'], command=partial(self.open_help_window, root))
-            game_menu.add_command(label=constants[self.parent.lang]['menu_toggle_debug'], command=self.toggle_debug_menu)
+            game_menu.add_command(label=strings.get_string('menu_settings'), command=partial(self.open_game_wind_settingsow, root))
+            game_menu.add_command(label=strings.get_string('menu_help'), command=partial(self.open_help_window, root))
+            game_menu.add_command(label=strings.get_string('menu_toggle_debug'), command=self.toggle_debug_menu)
     
-            
             lang_menu = tk.Menu(game_menu, tearoff=0)
             langs = ['en', 'es', 'fr', 'nl']
             for lang in langs:
-                lang_menu.add_command(label=constants[self.parent.lang][f'menu_lang_{lang}'], command=partial(self.set_language, lang))
+                lang_menu.add_command(label=strings.get_string(f'menu_lang_{lang}'), command=partial(self.set_language, lang))
+            game_menu.add_cascade(label=strings.get_string('menu_cascade_language'), menu=lang_menu)
 
-            game_menu.add_cascade(label=constants[self.parent.lang]['menu_cascade_language'], menu=lang_menu)
-
-
-            menubar.add_cascade(label=constants[self.parent.lang]['menu_cascade_file'], menu=filemenu)
-            menubar.add_cascade(label=constants[self.parent.lang]['menu_cascade_game'], menu=game_menu)
+            menubar.add_cascade(label=strings.get_string('menu_cascade_file'), menu=filemenu)
+            menubar.add_cascade(label=strings.get_string('menu_cascade_game'), menu=game_menu)
 
             
             return menubar
         
         def set_language(self, lang):
             self.parent.lang = lang
-            self.root.config(menu=self.create_menu_bar(self.root)) #, title=constants[self.parent.lang]['title'])
+            strings.active_language = lang
+            self.root.config(menu=self.create_menu_bar(self.root))
+            self.root.title(strings.get_string('title'))
+
+            # Other text to be updated:
+            self.frame_scoreboard.destroy()
+        
+            self.frame_scoreboard = self.create_frame_scoreboard()
+            self.update_scoreboard()
+            self.frame_scoreboard.grid(row=1, column=3, columnspan=1, pady=5, padx=(0,50), sticky='news')
             
             
 
@@ -796,15 +944,15 @@ class SwineMeeperGameManager:
         def open_help_window(self, root):
             top= tk.Toplevel(root)
             top.geometry('500x250')
-            top.title(constants[self.parent.lang]['wind_help_title'])
-            tk.Label(top, text=constants[self.parent.lang]['wind_help_text'], font=('Helvetica 14 bold')).place(x=150,y=80)
+            top.title(strings.get_string('wind_help_title'))
+            tk.Label(top, text=strings.get_string('wind_help_text'), font=('Arial 14 bold')).place(x=150,y=80)
 
         
         def open_wind_aboutow(self, root):
             top= tk.Toplevel(root)
             top.geometry('500x250')
-            top.title(constants[self.parent.lang]['wind_about_title'])
-            tk.Label(top, text=constants[self.parent.lang]['wind_about_text'], font=('Helvetica 14 bold')).place(x=150,y=80)
+            top.title(strings.get_string('wind_about_title'))
+            tk.Label(top, text=strings.get_string('wind_about_text'), font=('Arial 14 bold')).place(x=150,y=80)
 
     
         def CellButtonReleaseHandler(self, btn_coords, event):
@@ -846,28 +994,36 @@ class SwineMeeperGameManager:
             for i in range(self.parent.game.num_rows): # basic approach: change the image and TODO state of each cell after every user input
                 for j in range(self.parent.game.num_cols):
                     cell = self.parent.game.board[(i,j)]
-                    btn = self.frame_cell_grid.board_cell_buttons[(i,j)]
-                    state = tk.NORMAL if cell.enabled() else tk.DISABLED
+                    if cell.render_this_turn:
+                        btn = self.frame_cell_grid.board_cell_buttons[(i,j)]
+                        state = tk.NORMAL if cell.enabled() else tk.DISABLED
 
-                    btn.config(image=getattr(self.assets, cell.get_cell_image_key()), state=state)
+                        btn.config(image=getattr(self.assets, cell.get_cell_image_key()), state=state)
 
             #self.render_timestamp = time.time()
-            
+        
+        def quit_game(self, event=None):
+            #if self.parent.debug_mode: 
+            print('Quitting game')
+            self.root.quit()
+            self.root.quit()
 
-        def restart_game(self):
+        def restart_game(self, event=None):
             if self.parent.debug_mode: print('Restarting game')
-            
+
             num_rows = self.parent.game.num_rows
             num_cols = self.parent.game.num_cols
             num_bombs_to_add = self.parent.game.num_bombs
 
             self.parent.start_or_restart_game(num_rows, num_cols, num_bombs_to_add)
             
-            
+    
 
 if __name__ == '__main__':
+    
     game_manager = SwineMeeperGameManager()
-    game_manager.gui.root.mainloop()
+    #SwineMeeperGameManager.create_meep_db()
+    game_manager.gui.root.mainloop()#
 
 #    SwineMeeperGameManager().gui.root.mainloop()
 
