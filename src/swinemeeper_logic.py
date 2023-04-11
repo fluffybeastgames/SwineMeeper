@@ -5,9 +5,12 @@ import tkinter as tk
 from tkinter import messagebox
 import time
 from functools import partial
-from settings import strings
 import sqlite3
 import datetime as dt
+
+# Project modules
+from settings import strings
+from constants import *
 
 class SweepData:
     def __init__(self):
@@ -70,10 +73,10 @@ class SwineMeeperGameManager:
     def start_or_restart_game(self, num_rows, num_cols, num_bombs_to_add):
         self.debug_mode: print('start_or_restart_game() called!')
     
-        if self.game is not None and self.game.game_status == self.game.GAME_STATUS_IN_PROGRESS:
+        if self.game is not None and self.game.game_status ==GAME_STATUS_IN_PROGRESS:
             
             score = int(self.timer.get_elapsed_time())
-            self.db.insert_score(0, 'Zeke', self.game.num_rows, self.game.num_cols, self.game.num_bombs, score, self.game.GAME_STATUS_ABANDONED)
+            self.db.insert_score(0, 'Zeke', self.game.num_rows, self.game.num_cols, self.game.num_bombs, score, GAME_STATUS_ABANDONED)
             
         self.game = self.SwineMeeperGame(self, num_rows, num_cols, num_bombs_to_add)
         if self.debug_mode: self.gui.lbl_debug.grid(row=2, column=0, columnspan=3)
@@ -87,12 +90,6 @@ class SwineMeeperGameManager:
         self.gui.update_scoreboard()
 
     class SwineMeeperGame:
-        GAME_STATUS_READY = 'Ready'
-        GAME_STATUS_IN_PROGRESS = 'In Progress'
-        GAME_STATUS_LOST = 'Lost'
-        GAME_STATUS_WON = 'Won'
-        GAME_STATUS_INIT = 'INIT'
-        GAME_STATUS_ABANDONED = 'Abandoned'
 
         def __init__(self, parent, num_rows, num_cols, num_bombs_to_add): 
             self.parent = parent
@@ -106,7 +103,7 @@ class SwineMeeperGameManager:
             elif num_bombs_to_add >= num_rows*num_cols:
                 raise ValueError('Too many bombs!')
 
-            self.game_status = self.GAME_STATUS_INIT
+            self.game_status = GAME_STATUS_INIT
             self.turn_count = 0
             self.num_rows = num_rows
             self.num_cols = num_cols
@@ -120,7 +117,7 @@ class SwineMeeperGameManager:
                     
             self.add_bombs(num_bombs_to_add)
             self.calculate_neighbors()        
-            self.game_status = self.GAME_STATUS_READY
+            self.game_status = GAME_STATUS_READY
 
 
         def add_bombs(self, num_bombs_to_add):
@@ -190,7 +187,7 @@ class SwineMeeperGameManager:
             for row in range(self.num_rows):
                 for col in range(self.num_cols):
                     #if self.board[row - 1, col].status == CELL_STATUS_EXPOSED:
-                    if self.board[row, col].status == self.SwineMeeperCell.CELL_STATUS_EXPOSED:
+                    if self.board[row, col].status == CELL_STATUS_EXPOSED:
                         cells_occupied +=1
                         
             return total_cells - cells_occupied - self.num_bombs
@@ -200,23 +197,23 @@ class SwineMeeperGameManager:
             num_flags = 0
             for row in range(self.num_rows):
                 for col in range(self.num_cols):
-                    if self.board[(row, col)].status == self.SwineMeeperCell.CELL_STATUS_FLAG:
+                    if self.board[(row, col)].status == CELL_STATUS_FLAG:
                         num_flags +=1        
             return num_flags
 
 
         def get_num_flags_remaining(self):
-            return (self.num_bombs - self.get_num_flags_placed()) if self.game_status not in (self.GAME_STATUS_INIT, self.GAME_STATUS_WON) else 0
+            return (self.num_bombs - self.get_num_flags_placed()) if self.game_status not in (GAME_STATUS_INIT, GAME_STATUS_WON) else 0
 
 
         def end_game(self, victory=False):
             self.parent.timer.pause_timer()
             
-            if self.game_status == self.GAME_STATUS_IN_PROGRESS:
+            if self.game_status == GAME_STATUS_IN_PROGRESS:
                 if victory:
-                    self.game_status = self.GAME_STATUS_WON
+                    self.game_status = GAME_STATUS_WON
                 else:
-                    self.game_status = self.GAME_STATUS_LOST
+                    self.game_status = GAME_STATUS_LOST
                     if self.parent.debug_mode: print('YOU LOSE')
                     
                 score = int(self.parent.timer.get_elapsed_time())
@@ -236,20 +233,20 @@ class SwineMeeperGameManager:
             col = cell_coords[1]
             
             old_status = self.board[cell_coords].status
-            if self.game_status in (self.GAME_STATUS_READY, self.GAME_STATUS_IN_PROGRESS) and old_status in (self.SwineMeeperCell.CELL_STATUS_HIDDEN, self.SwineMeeperCell.CELL_STATUS_FLAG, self.SwineMeeperCell.CELL_STATUS_FLAG_MAYBE):
+            if self.game_status in (GAME_STATUS_READY, GAME_STATUS_IN_PROGRESS) and old_status in (CELL_STATUS_HIDDEN, CELL_STATUS_FLAG, CELL_STATUS_FLAG_MAYBE):
                 self.turn_count += 1
                 
-                if old_status == self.SwineMeeperCell.CELL_STATUS_HIDDEN:
-                    new_status = self.SwineMeeperCell.CELL_STATUS_FLAG
+                if old_status == CELL_STATUS_HIDDEN:
+                    new_status = CELL_STATUS_FLAG
 
-                elif old_status == self.SwineMeeperCell.CELL_STATUS_FLAG:
+                elif old_status == CELL_STATUS_FLAG:
                     if self.parent.maybe_flag_enabled:
-                        new_status = self.SwineMeeperCell.CELL_STATUS_FLAG_MAYBE
+                        new_status = CELL_STATUS_FLAG_MAYBE
                     else:
-                        new_status = self.SwineMeeperCell.CELL_STATUS_HIDDEN
+                        new_status = CELL_STATUS_HIDDEN
 
-                elif old_status == self.SwineMeeperCell.CELL_STATUS_FLAG_MAYBE: # check even if not maybe_flag_enabled, as the value may have changed mid-game
-                    new_status = self.SwineMeeperCell.CELL_STATUS_HIDDEN
+                elif old_status == CELL_STATUS_FLAG_MAYBE: # check even if not maybe_flag_enabled, as the value may have changed mid-game
+                    new_status = CELL_STATUS_HIDDEN
                             
                 self.board[row, col].status = new_status
                 self.board[row, col].render_this_turn = True
@@ -262,9 +259,9 @@ class SwineMeeperGameManager:
         # Check if a row/column is a) in bounds and b) is 'exposable'
             if row >= 0 and row < self.num_rows and col >= 0 and col < self.num_cols:
                 if maybe_flags_are_valid:
-                    return (self.board[row, col].status in(self.SwineMeeperCell.CELL_STATUS_HIDDEN, self.SwineMeeperCell.CELL_STATUS_FLAG_MAYBE))
+                    return (self.board[row, col].status in(CELL_STATUS_HIDDEN, CELL_STATUS_FLAG_MAYBE))
                 else:
-                    return (self.board[row, col].status == self.SwineMeeperCell.CELL_STATUS_HIDDEN)
+                    return (self.board[row, col].status == CELL_STATUS_HIDDEN)
             else:
                 return False
 
@@ -273,10 +270,10 @@ class SwineMeeperGameManager:
             cell_status = self.board[cell_coords].status
             self.board[cell_coords].render_this_turn = True
             
-            if self.game_status in (self.GAME_STATUS_READY, self.GAME_STATUS_IN_PROGRESS) and cell_status in (self.SwineMeeperCell.CELL_STATUS_HIDDEN, self.SwineMeeperCell.CELL_STATUS_FLAG_MAYBE): # proceed
-                if self.game_status == self.GAME_STATUS_READY:
+            if self.game_status in (GAME_STATUS_READY, GAME_STATUS_IN_PROGRESS) and cell_status in (CELL_STATUS_HIDDEN, CELL_STATUS_FLAG_MAYBE): # proceed
+                if self.game_status == GAME_STATUS_READY:
                     self.parent.timer.start_timer()
-                    self.game_status = self.GAME_STATUS_IN_PROGRESS
+                    self.game_status = GAME_STATUS_IN_PROGRESS
 
                 if was_clicked:
                     self.turn_count += 1
@@ -292,13 +289,13 @@ class SwineMeeperGameManager:
                             print('OH NO a bomb on the first move') # HMMMM what about an option to implement 'suicide minesweeper' where you're guaranteed 0 neighbors on 1st move and then have to left click on bombs to expose more territory?
                             # self.print_bomb_grid()
 
-                        self.board[cell_coords].status = self.SwineMeeperCell.CELL_STATUS_EXPOSED
+                        self.board[cell_coords].status = CELL_STATUS_EXPOSED
 
                     else:
-                        self.board[cell_coords].status = self.SwineMeeperCell.CELL_STATUS_BOOM
+                        self.board[cell_coords].status = CELL_STATUS_BOOM
                         self.end_game(victory=False)
                 else:
-                    self.board[cell_coords].status = self.SwineMeeperCell.CELL_STATUS_EXPOSED
+                    self.board[cell_coords].status = CELL_STATUS_EXPOSED
 
                 # If the cell contains no neighbors, recursively 'click' on all adjacent cells until a wall of numbers is fully exposed
                 if self.board[cell_coords].neighbors == 0:
@@ -327,37 +324,37 @@ class SwineMeeperGameManager:
                 num_adjacent = 0
 
                 if row > 0: 
-                    if self.board[row - 1, col].status == self.SwineMeeperCell.CELL_STATUS_FLAG: num_adjacent += 1
+                    if self.board[row - 1, col].status == CELL_STATUS_FLAG: num_adjacent += 1
                     
                     if col > 0: # top left
-                        if self.board[row - 1, col - 1].status == self.SwineMeeperCell.CELL_STATUS_FLAG: num_adjacent += 1
+                        if self.board[row - 1, col - 1].status == CELL_STATUS_FLAG: num_adjacent += 1
 
                     if (self.num_cols - col > 1): # top right
-                        if self.board[row - 1, col + 1].status == self.SwineMeeperCell.CELL_STATUS_FLAG: num_adjacent += 1
+                        if self.board[row - 1, col + 1].status == CELL_STATUS_FLAG: num_adjacent += 1
 
                 #check below
                 if self.num_rows - row > 1: 
-                    if self.board[row + 1, col].status == self.SwineMeeperCell.CELL_STATUS_FLAG: num_adjacent += 1
+                    if self.board[row + 1, col].status == CELL_STATUS_FLAG: num_adjacent += 1
                     
                     if col > 0: # top left
-                        if self.board[row + 1, col - 1].status == self.SwineMeeperCell.CELL_STATUS_FLAG: num_adjacent += 1
+                        if self.board[row + 1, col - 1].status == CELL_STATUS_FLAG: num_adjacent += 1
 
                     if (self.num_cols - col > 1): # top right
-                        if self.board[row + 1, col + 1].status == self.SwineMeeperCell.CELL_STATUS_FLAG: num_adjacent += 1
+                        if self.board[row + 1, col + 1].status == CELL_STATUS_FLAG: num_adjacent += 1
 
                 #check left/right
                 if col > 0: # left
-                    if self.board[row, col - 1].status == self.SwineMeeperCell.CELL_STATUS_FLAG: num_adjacent += 1
+                    if self.board[row, col - 1].status == CELL_STATUS_FLAG: num_adjacent += 1
 
                 if (self.num_cols - col > 1): # right
-                    if self.board[row, col + 1].status == self.SwineMeeperCell.CELL_STATUS_FLAG: num_adjacent += 1
+                    if self.board[row, col + 1].status == CELL_STATUS_FLAG: num_adjacent += 1
 
                 return num_adjacent
                         
-            if self.game_status in (self.GAME_STATUS_IN_PROGRESS):
+            if self.game_status in (GAME_STATUS_IN_PROGRESS):
                 cell = self.board[cell_coords]
 
-                if cell.status == self.SwineMeeperCell.CELL_STATUS_EXPOSED: # can't expand if we can't see the neighboring bomb count
+                if cell.status == CELL_STATUS_EXPOSED: # can't expand if we can't see the neighboring bomb count
                     
                     if num_adjacent_flags(cell) == cell.neighbors:
                         if self.parent.debug_mode: print('expaaaand')
@@ -418,15 +415,6 @@ class SwineMeeperGameManager:
 
 
         class SwineMeeperCell:
-            
-            CELL_STATUS_HIDDEN = 0 # available
-            CELL_STATUS_EXPOSED = 1
-            CELL_STATUS_FLAG = 2
-            CELL_STATUS_FLAG_MAYBE = 3
-            CELL_STATUS_BOOM = 4
-            CELL_STATUS_BOMB_EXPOSED = 5 
-            CELL_STATUS_FLAG_WAS_WRONG = 6
-
             def __init__(self, parent, row, col):
                 # if parent.parent.debug_mode:   print(f'Initializing cell [{row}][{col}]')
                     
@@ -435,15 +423,15 @@ class SwineMeeperGameManager:
                 self.col = col
                 self.contains_bomb = False # can be modified later
                 self.neighbors = 0 # will be calculate later
-                self.status = self.CELL_STATUS_HIDDEN # all cells start unexposed
+                self.status = CELL_STATUS_HIDDEN # all cells start unexposed
                 self.render_this_turn = True # for performance sake, only update cell appearance when appropriate. True at start to complete initial render
             
 
             def enabled(self):
-                if self.parent.game_status in (self.parent.GAME_STATUS_LOST, self.parent.GAME_STATUS_WON, self.parent.GAME_STATUS_INIT):
+                if self.parent.game_status in (GAME_STATUS_LOST, GAME_STATUS_WON, GAME_STATUS_INIT):
                     return False
                 else:
-                    return self.status in (self.CELL_STATUS_HIDDEN, self.CELL_STATUS_FLAG, self.CELL_STATUS_FLAG_MAYBE)
+                    return self.status in (CELL_STATUS_HIDDEN, CELL_STATUS_FLAG, CELL_STATUS_FLAG_MAYBE)
             
 
             def get_cell_image_key(self):
@@ -451,25 +439,25 @@ class SwineMeeperGameManager:
                 game_status = self.parent.game_status
                 
                 # on game over, reveal undetected bombs and highlight any false flags            
-                if game_status == self.parent.GAME_STATUS_WON and self.contains_bomb:
+                if game_status == GAME_STATUS_WON and self.contains_bomb:
                     return 'img_flag'
                 
-                elif game_status == self.parent.GAME_STATUS_LOST and self.contains_bomb and self.status in (self.CELL_STATUS_HIDDEN, self.CELL_STATUS_FLAG_MAYBE):
+                elif game_status == GAME_STATUS_LOST and self.contains_bomb and self.status in (CELL_STATUS_HIDDEN, CELL_STATUS_FLAG_MAYBE):
                     return 'img_bomb'
 
-                elif game_status == self.parent.GAME_STATUS_LOST and self.status == self.CELL_STATUS_FLAG and not self.contains_bomb:
+                elif game_status == GAME_STATUS_LOST and self.status == CELL_STATUS_FLAG and not self.contains_bomb:
                         return 'img_flag_wrong'
 
                 else:
-                    if self.status == self.CELL_STATUS_EXPOSED:
+                    if self.status == CELL_STATUS_EXPOSED:
                         return f'img_{self.neighbors}'
-                    elif self.status == self.CELL_STATUS_FLAG:
+                    elif self.status == CELL_STATUS_FLAG:
                         return 'img_flag'
-                    elif self.status == self.CELL_STATUS_FLAG_MAYBE:
+                    elif self.status == CELL_STATUS_FLAG_MAYBE:
                         return 'img_flag_maybe'
-                    elif self.status == self.CELL_STATUS_BOOM:
+                    elif self.status == CELL_STATUS_BOOM:
                         return 'img_boom'
-                    elif self.status == self.CELL_STATUS_BOMB_EXPOSED:
+                    elif self.status == CELL_STATUS_BOMB_EXPOSED:
                         return 'img_bomb'
                     else: # hidden should be the only remaining valid option
                         return 'img_hidden'
@@ -581,10 +569,17 @@ class SwineMeeperGameManager:
                     
         def apply_bindings(self):
             #self.root.bind('<MouseWheel>', self.zoom_wheel_handler) # Windows OS support
+            self.root.bind('<Control-n>', self.restart_game) # TODO add a caps lock check and switch which function to call
+            self.root.bind('<Control-N>', partial(self.open_game_settings_window, self.root)) # TODO add a caps lock check and switch which function to call
+            
             self.root.bind('<Control-Q>', self.quit_game)
             self.root.bind('<Control-q>', self.quit_game)
-            self.root.bind('<Control-n>', self.restart_game)          
-            self.root.bind('<Control-N>', self.restart_game)                  
+            self.root.bind('<Control-A>', self.open_about_window)
+            self.root.bind('<Control-a>', self.open_about_window)
+            self.root.bind('<Control-H>', self.open_help_window)
+            self.root.bind('<Control-h>', self.open_help_window)
+            self.root.bind('<Control-D>', self.toggle_debug_menu)
+            self.root.bind('<Control-d>', self.toggle_debug_menu)
             
         def on_delete_window(self):
             if self.parent.confirm_on_exit:
@@ -603,6 +598,7 @@ class SwineMeeperGameManager:
                 for j in range(self.parent.game.num_cols):
                     f_grid.board_cell_buttons[(i, j)] = tk.Button(master=f_grid, image=self.assets.img_hidden) # add cell to the dictionary and establish default behavior
                     f_grid.board_cell_buttons[(i, j)].grid(row=i, column=j) # place the cell in the frame
+                    f_grid.board_cell_buttons[(i, j)].bind('<Button>', partial(self.CellButtonPressHandler, i ,j)) # add a mouse handler to deal with user input
                     f_grid.board_cell_buttons[(i, j)].bind('<ButtonRelease>', partial(self.CellButtonReleaseHandler,(i , j))) # add a mouse handler to deal with user input
             
             return f_grid
@@ -636,7 +632,7 @@ class SwineMeeperGameManager:
             return f
         
         def update_scoreboard(self):
-            sql = f'''SELECT display_name, score, date FROM game_results where result='{self.parent.game.GAME_STATUS_WON}' 
+            sql = f'''SELECT display_name, score, date FROM game_results where result='{GAME_STATUS_WON}' 
                         and num_rows={self.parent.game.num_rows} and num_cols={self.parent.game.num_cols} and num_bombs={self.parent.game.num_bombs} 
                         ORDER BY score ASC, date DESC LIMIT 10'''
             self.parent.db.cur.execute(sql)
@@ -687,7 +683,7 @@ class SwineMeeperGameManager:
         def game_loop(self):
             self.refresh_check_timestamp = time.time()
             #if not self.parent.game.game_status in (self.parent.game.GAME_STATUS_WON, self.parent.game.GAME_STATUS_LOST):
-            if self.parent.game.game_status not in (self.parent.game.GAME_STATUS_INIT):    
+            if self.parent.game.game_status not in (GAME_STATUS_INIT,):    
                 self.refresh_checks_elapsed += 1
                 time_since_render =  time.time() - self.render_timestamp
                 if time_since_render >= 1.0/self.FPS_TARGET:
@@ -894,27 +890,27 @@ class SwineMeeperGameManager:
         def create_menu_bar(self, root):            
             menubar = tk.Menu(root)
             
-            filemenu = tk.Menu(menubar, tearoff=0)
-            filemenu.add_command(label=strings.get_string('menu_new_game'), command=self.restart_game)
-            filemenu.add_separator()
-            filemenu.add_command(label=strings.get_string('menu_about'), command=partial(self.open_wind_aboutow, root))
-            filemenu.add_separator()
-            filemenu.add_command(label=strings.get_string('menu_exit'), command=self.quit_game)
+            file_menu = tk.Menu(menubar, tearoff=0)
+            file_menu.add_command(label=strings.get_string('menu_new_game'), command=self.restart_game, accelerator='Ctrl+N')
+            file_menu.add_command(label=strings.get_string('menu_settings'), command=partial(self.open_game_settings_window, root), accelerator='Ctrl+Shift+N')
+            file_menu.add_separator()
+            file_menu.add_command(label=strings.get_string('menu_exit'), command=self.quit_game, accelerator='Ctrl+Q')
             
-            game_menu = tk.Menu(menubar, tearoff=0)
-            game_menu.add_command(label=strings.get_string('menu_settings'), command=partial(self.open_game_wind_settingsow, root))
-            game_menu.add_command(label=strings.get_string('menu_help'), command=partial(self.open_help_window, root))
-            game_menu.add_command(label=strings.get_string('menu_toggle_debug'), command=self.toggle_debug_menu)
-    
-            lang_menu = tk.Menu(game_menu, tearoff=0)
+            help_menu = tk.Menu(menubar, tearoff=0)
+            help_menu.add_command(label=strings.get_string('menu_help'), command=partial(self.open_help_window, root), accelerator='Ctrl+H')
+            help_menu.add_command(label=strings.get_string('menu_about'), command=partial(self.open_about_window, root), accelerator='Ctrl+A')
+            
+            lang_menu = tk.Menu(help_menu, tearoff=0)
             langs = ['en', 'es', 'fr', 'nl']
             for lang in langs:
                 lang_menu.add_command(label=strings.get_string(f'menu_lang_{lang}'), command=partial(self.set_language, lang))
-            game_menu.add_cascade(label=strings.get_string('menu_cascade_language'), menu=lang_menu)
+            help_menu.add_cascade(label=strings.get_string('menu_cascade_language'), menu=lang_menu)
 
-            menubar.add_cascade(label=strings.get_string('menu_cascade_file'), menu=filemenu)
-            menubar.add_cascade(label=strings.get_string('menu_cascade_game'), menu=game_menu)
-
+            help_menu.add_separator()
+            help_menu.add_command(label=strings.get_string('menu_toggle_debug'), command=self.toggle_debug_menu)
+    
+            menubar.add_cascade(label=strings.get_string('menu_cascade_file'), menu=file_menu)
+            menubar.add_cascade(label=strings.get_string('menu_cascade_game'), menu=help_menu)
             
             return menubar
         
@@ -933,30 +929,60 @@ class SwineMeeperGameManager:
             
             
 
-        def toggle_debug_menu(self):
+        def toggle_debug_menu(self, event=None):
             self.parent.debug_mode = not self.parent.debug_mode
 
 
-        def open_game_wind_settingsow(self, root):
+        def open_game_settings_window(self, root, event=None):
             self.SettingsWindow(self) #maybe not best practice - creates a top level window that will destroy itself upon closure (but we can't refer to it or see if one is already open)
 
 
-        def open_help_window(self, root):
+        def open_help_window(self, root): # TODO prettify 
             top= tk.Toplevel(root)
-            top.geometry('500x250')
+            # top.geometry('500x250')
             top.title(strings.get_string('wind_help_title'))
-            tk.Label(top, text=strings.get_string('wind_help_text'), font=('Arial 14 bold')).place(x=150,y=80)
+            tk.Label(top, text=strings.get_string('wind_help_text'), font=('Arial 18 bold')).grid(row=0,column=0, sticky='N', padx=10, pady=(30,5))
+            tk.Label(top, text=strings.get_string('wind_help_text2'), font=('Arial 14')).grid(row=1,column=0, sticky='NW', padx=10, pady=5)
+            tk.Label(top, text=strings.get_string('wind_help_text3'), font=('Arial 14')).grid(row=2,column=0, sticky='NW', padx=10, pady=5)
+            tk.Label(top, text=strings.get_string('wind_help_text4'), font=('Arial 14')).grid(row=3,column=0, sticky='NW', padx=10, pady=5)
+            tk.Label(top, text=strings.get_string('wind_help_text5'), font=('Arial 14')).grid(row=4,column=0, sticky='NW', padx=10, pady=5)
+            tk.Label(top, text=strings.get_string('wind_help_text6'), font=('Arial 14')).grid(row=5,column=0, sticky='NW', padx=10, pady=5)
+            
 
-        
-        def open_wind_aboutow(self, root):
+        def open_about_window(self, root): # TODO prettify 
             top= tk.Toplevel(root)
-            top.geometry('500x250')
             top.title(strings.get_string('wind_about_title'))
-            tk.Label(top, text=strings.get_string('wind_about_text'), font=('Arial 14 bold')).place(x=150,y=80)
+            tk.Label(top, text=strings.get_string('wind_about_text'), font=('Arial 18 bold')).grid(row=0,column=0, sticky='N', padx=10, pady=(30,5))
+            tk.Label(top, text=strings.get_string('wind_about_text2'), font=('Arial 14')).grid(row=1,column=0, sticky='NW', padx=10, pady=5)
+            tk.Label(top, text=strings.get_string('wind_about_text3'), font=('Arial 14')).grid(row=2,column=0, sticky='NW', padx=10, pady=5)
+            tk.Label(top, text=strings.get_string('wind_about_text4'), font=('Arial 14')).grid(row=3,column=0, sticky='NW', padx=10, pady=5)
 
-    
+
+
+        def CellButtonPressHandler(self, row, col, event):
+        # Triggered when a mouse button is clicked; the game only cares about ButtonRelease events, except for one specific visual aid during middle clicks
+            if event.num == 2: # middle click
+                self.highlight_open_neighbors(row, col)
+                
+
+        def highlight_open_neighbors(self, row, col):
+            print('highlight neighbors')
+            # if self.game_status in (self.GAME_STATUS_READY, self.GAME_STATUS_IN_PROGRESS):
+
+            
+            # cell_status = self.board[cell_coords].status
+            # self.board[cell_coords].render_this_turn = True
+            
+            # and cell_status in (CELL_STATUS_HIDDEN, CELL_STATUS_FLAG_MAYBE): # proceed
+            #     if self.game_status == self.GAME_STATUS_READY:
+            #         self.parent.timer.start_timer()
+            #         self.game_status = self.GAME_STATUS_IN_PROGRESS
+                    
+
+
+
         def CellButtonReleaseHandler(self, btn_coords, event):
-            if self.parent.game.game_status in(self.parent.game.GAME_STATUS_READY, self.parent.game.GAME_STATUS_IN_PROGRESS):
+            if self.parent.game.game_status in(GAME_STATUS_READY, GAME_STATUS_IN_PROGRESS):
                 # First check to see if the user tried to cancel the click by moving the cursor out of the cell
                 if not(event.x < 0 or event.y < 0 or event.x > self.assets.cell_width or event.y > self.assets.cell_height):      
                     # if self.parent.debug_mode: print('CLICK')
@@ -988,7 +1014,7 @@ class SwineMeeperGameManager:
             self.clock_label_text.set(str(int(self.parent.timer.get_elapsed_time())).zfill(3)) # there's probably a cleaner way to format this #
             self.bomb_counter_text.set(str(self.parent.game.get_num_flags_remaining()).zfill(3))
 
-            btn_img = 'img_unhappy' if (self.parent.game.game_status==self.parent.game.GAME_STATUS_LOST) else 'img_happy'
+            btn_img = 'img_unhappy' if (self.parent.game.game_status==GAME_STATUS_LOST) else 'img_happy'
             self.btn_start.config(image=getattr(self.assets, btn_img))
 
             for i in range(self.parent.game.num_rows): # basic approach: change the image and TODO state of each cell after every user input

@@ -29,7 +29,7 @@ class SwineStrings:
             'menu_help': 'Help',
             'menu_toggle_debug': 'Toggle Debug Mode',
             'wind_about_title': 'About SwineMeeper',
-            'wind_about_text': 'All About SwineMeeper',
+            'wind_about_text': 'SwineMeeper',
             'wind_settings_title': 'Game Settings',
             'wind_settings_rows': 'Rows',
             'wind_settings_cols': 'Cols',
@@ -37,7 +37,7 @@ class SwineStrings:
             'wind_settings_apply': 'Apply Settings',
             'wind_settings_cancel': 'Cancel',
             'wind_help_title': 'Help',
-            'wind_help_text': 'Here\'s how to play SwineMeeper',
+            'wind_help_text': 'How to Play SwineMeeper',
             'prompt_confirm_exit_title': 'Exit',
             'prompt_confirm_exit_msg' : 'Do you want to quit?',
             'menu_cascade_language': 'Language',
@@ -53,7 +53,17 @@ class SwineStrings:
             'scoreboard_header': 'High Scores',
             'scoreboard_name': 'Name',
             'scoreboard_score': 'Score',
-            'scoreboard_date': 'Date'     
+            'scoreboard_date': 'Date',
+            'wind_help_text2': '''Goal: Find the truffles by exposing every square on the board that does not contain a bomb. \nThe number on a square indicates how many bombs are in one of the 8 surrounding tiles - a 1 indicates a single bomb, a 2 indicates a pair of bombs, and so on. Blank exposed cells have 0 adjacenet bombs.\nSquares confirmed to contain a bomb can be marked with a red flag, while those you are unsure of can be marked with a ?''',
+            'wind_help_text3': '''Left Click on an empty square to reveal its contents.\nRight Click to place a flag. Right click again to show a ? flag, and click a third time to remove the flag.\nMiddle Click on a square to expose its neighbors. This is a valid move only when there are as many adjacent flags as the number in the square.''',
+            'wind_help_text4': '''To start a new game either click on the smiley face, select New Game from the File menu, or press Ctrl+N\To adjust the size of the board or the number of bombs, select Game Settings from the File menu or press Ctrl+Shift+N.''',
+            'wind_help_text5': '''Music and sound effects can be enabled or disabled with the (note image) or (speaker image) buttons to the right of the smiley face.''',
+            'wind_help_text6': '''The game is available in four languages! Find them in the Settings menu.''',
+            'wind_about_text2': '© 2023 A Fluffy Beast Games production',
+            'wind_about_text3': 'Code by Matt C\nArt by Anne M',
+            'wind_about_text4': 'Released under a GNU GENERAL PUBLIC LICENSE\nFind the source code at ',
+            
+     
         }
 
         dict_out['fr'] = { # French (France)
