@@ -61,9 +61,9 @@ class SwineStrings:
             'wind_help_text6': '''The game is available in four languages! Find them in the Settings menu.''',
             'wind_about_text2': '© 2023 A Fluffy Beast Games production',
             'wind_about_text3': 'Code by Matt C\nArt by Anne M',
-            'wind_about_text4': 'Released under a GNU GENERAL PUBLIC LICENSE\nFind the source code at ',
+            'wind_about_text4': 'Released under a GNU GENERAL PUBLIC LICENSE\nFind the source code at:',
+            'url_repo': r'https://github.com/fluffybeastgames/SwineMeeper/'
             
-     
         }
 
         dict_out['fr'] = { # French (France)
