@@ -7,6 +7,7 @@ import time
 from functools import partial
 import sqlite3
 import datetime as dt
+import webbrowser
 
 # Project modules
 from settings import strings
@@ -317,7 +318,7 @@ class SwineMeeperGameManager:
 
         def expand_solution(self, cell_coords): # aka middle click
             # If the clicked cell contains an exposed number, and the number of neighbors with flags == that number, expose all unexposed neighbors
-
+            
             def num_adjacent_flags(cell):
                 row = cell.row
                 col = cell.col
@@ -564,6 +565,8 @@ class SwineMeeperGameManager:
             #if self.parent.debug_mode:
             self.lbl_debug.grid(row=2, column=0, columnspan=3)
             
+            self.mouse_down = False # true when the left or middle mouse button is pressed down
+
             self.apply_bindings() # add keyboard shortcuts to New Game, Quit, and possibly more
             self.game_loop() # start the game cycle!
                     
@@ -574,12 +577,12 @@ class SwineMeeperGameManager:
             
             self.root.bind('<Control-Q>', self.quit_game)
             self.root.bind('<Control-q>', self.quit_game)
-            self.root.bind('<Control-A>', self.open_about_window)
-            self.root.bind('<Control-a>', self.open_about_window)
-            self.root.bind('<Control-H>', self.open_help_window)
-            self.root.bind('<Control-h>', self.open_help_window)
-            self.root.bind('<Control-D>', self.toggle_debug_menu)
-            self.root.bind('<Control-d>', self.toggle_debug_menu)
+            self.root.bind('<Control-A>', partial(self.open_about_window, self.root))
+            self.root.bind('<Control-a>', partial(self.open_about_window, self.root))
+            self.root.bind('<Control-H>', partial(self.open_help_window, self.root))
+            self.root.bind('<Control-h>', partial(self.open_help_window, self.root))
+            self.root.bind('<Control-D>', self.toggle_debug_mode)
+            self.root.bind('<Control-d>', self.toggle_debug_mode)
             
         def on_delete_window(self):
             if self.parent.confirm_on_exit:
@@ -877,7 +880,7 @@ class SwineMeeperGameManager:
                 # Start button graphics:
                 self.img_happy      = tk.PhotoImage(file=f'{dir_img}happy_button.gif') 
                 self.img_unhappy    = tk.PhotoImage(file=f'{dir_img}unhappy_button.gif') 
-                self.extra_happy    = tk.PhotoImage(file=f'{dir_img}extra_happy_button.gif') 
+                self.img_extra_happy    = tk.PhotoImage(file=f'{dir_img}extra_happy_button.gif') 
                 self.img_unsure     = tk.PhotoImage(file=f'{dir_img}unsure_button.gif') 
 
                 # Decoration
@@ -907,7 +910,7 @@ class SwineMeeperGameManager:
             help_menu.add_cascade(label=strings.get_string('menu_cascade_language'), menu=lang_menu)
 
             help_menu.add_separator()
-            help_menu.add_command(label=strings.get_string('menu_toggle_debug'), command=self.toggle_debug_menu)
+            help_menu.add_command(label=strings.get_string('menu_toggle_debug'), command=self.toggle_debug_mode)
     
             menubar.add_cascade(label=strings.get_string('menu_cascade_file'), menu=file_menu)
             menubar.add_cascade(label=strings.get_string('menu_cascade_game'), menu=help_menu)
@@ -929,7 +932,7 @@ class SwineMeeperGameManager:
             
             
 
-        def toggle_debug_menu(self, event=None):
+        def toggle_debug_mode(self, event=None):
             self.parent.debug_mode = not self.parent.debug_mode
 
 
@@ -937,7 +940,7 @@ class SwineMeeperGameManager:
             self.SettingsWindow(self) #maybe not best practice - creates a top level window that will destroy itself upon closure (but we can't refer to it or see if one is already open)
 
 
-        def open_help_window(self, root): # TODO prettify 
+        def open_help_window(self, root, event=None): # TODO prettify 
             top= tk.Toplevel(root)
             # top.geometry('500x250')
             top.title(strings.get_string('wind_help_title'))
@@ -948,42 +951,69 @@ class SwineMeeperGameManager:
             tk.Label(top, text=strings.get_string('wind_help_text5'), font=('Arial 14')).grid(row=4,column=0, sticky='NW', padx=10, pady=5)
             tk.Label(top, text=strings.get_string('wind_help_text6'), font=('Arial 14')).grid(row=5,column=0, sticky='NW', padx=10, pady=5)
             
+        def open_url(url):
+            webbrowser.open_new_tab(url)
 
-        def open_about_window(self, root): # TODO prettify 
+        def open_about_window(self, root, event=None ): # TODO prettify 
             top= tk.Toplevel(root)
             top.title(strings.get_string('wind_about_title'))
             tk.Label(top, text=strings.get_string('wind_about_text'), font=('Arial 18 bold')).grid(row=0,column=0, sticky='N', padx=10, pady=(30,5))
             tk.Label(top, text=strings.get_string('wind_about_text2'), font=('Arial 14')).grid(row=1,column=0, sticky='NW', padx=10, pady=5)
             tk.Label(top, text=strings.get_string('wind_about_text3'), font=('Arial 14')).grid(row=2,column=0, sticky='NW', padx=10, pady=5)
             tk.Label(top, text=strings.get_string('wind_about_text4'), font=('Arial 14')).grid(row=3,column=0, sticky='NW', padx=10, pady=5)
+            
+            self.url = strings.get_string('url_repo')
+            self.lbl_url = tk.Label(top, text=self.url, font=('Arial 14 underline')).grid(row=4,column=0, sticky='NW', padx=10, pady=5)
+            self.lbl_url.bind("<Button-1>", lambda e: self.open_url(self.url))
 
 
 
         def CellButtonPressHandler(self, row, col, event):
-        # Triggered when a mouse button is clicked; the game only cares about ButtonRelease events, except for one specific visual aid during middle clicks
-            if event.num == 2: # middle click
-                self.highlight_open_neighbors(row, col)
+        # Triggered when a mouse button is clicked; the game logic only cares about ButtonRelease events, but the GUI has two uses for it:
+            
+
+            if event.num in (1,2): # if the left or middle mouse button is depressed, changed the Smiley graphic with this setting
+                self.parent.gui.mouse_down = True
+            
+            if event.num == 2: # if middle button is clicked on a cell, highlight all unexposed neighbors
+                self.highlight_open_neighbors(row, col, tk.SUNKEN)
                 
 
-        def highlight_open_neighbors(self, row, col):
-            print('highlight neighbors')
-            # if self.game_status in (self.GAME_STATUS_READY, self.GAME_STATUS_IN_PROGRESS):
+        def highlight_open_neighbors(self, row, col, new_relief):
+        # Upon middle clicking an exposed cell, we want to alert the user to which cells are being considered for the expand_solution() function
+        # Call w/ relief = tk.RAISED to emphasize the cells, and tk.SUNKEN to revert them to their normal state 
 
-            
-            # cell_status = self.board[cell_coords].status
-            # self.board[cell_coords].render_this_turn = True
-            
-            # and cell_status in (CELL_STATUS_HIDDEN, CELL_STATUS_FLAG_MAYBE): # proceed
-            #     if self.game_status == self.GAME_STATUS_READY:
-            #         self.parent.timer.start_timer()
-            #         self.game_status = self.GAME_STATUS_IN_PROGRESS
+            if self.parent.game.game_status in (GAME_STATUS_READY, GAME_STATUS_IN_PROGRESS):
+                if self.parent.game.board[(row, col)].status == CELL_STATUS_EXPOSED:
+                    btns = self.frame_cell_grid.board_cell_buttons # too long to read
+                    num_rows = self.parent.game.num_rows
+                    num_cols = self.parent.game.num_cols
+                                        
+                    if row > 0: # Above
+                        if btns[(row-1, col)]['state'] == tk.NORMAL: btns[(row-1, col)].config(relief=new_relief)
+                        if col > 0: 
+                            if btns[(row-1, col-1)]['state'] == tk.NORMAL: btns[(row-1, col-1)].config(relief=new_relief)
+                        if col < num_cols - 1: 
+                            if btns[(row-1, col+1)]['state'] == tk.NORMAL: btns[(row-1, col+1)].config(relief=new_relief)
+                    if row < num_rows-1: # Below
+                        if btns[(row+1, col)]['state'] == tk.NORMAL: btns[(row+1, col)].config(relief=new_relief)
+                        if col > 0: 
+                            if btns[(row+1, col-1)]['state'] == tk.NORMAL: btns[(row+1, col-1)].config(relief=new_relief)
+                        if col < num_cols - 1: 
+                            if btns[(row+1, col+1)]['state'] == tk.NORMAL: btns[(row+1, col+1)].config(relief=new_relief)
+                    if col > 0: # Left
+                        if btns[(row, col-1)]['state'] == tk.NORMAL: btns[(row, col-1)].config(relief=new_relief)
+                    if col < num_cols -1: # Right
+                        if btns[(row, col+1)]['state'] == tk.NORMAL: btns[(row, col+1)].config(relief=new_relief)
                     
-
-
-
         def CellButtonReleaseHandler(self, btn_coords, event):
+        # Called when the user release a mouse button. Perform the according action, unless they dragged the mouse outside the clicked cell before releasing
+            
             if self.parent.game.game_status in(GAME_STATUS_READY, GAME_STATUS_IN_PROGRESS):
-                # First check to see if the user tried to cancel the click by moving the cursor out of the cell
+                if event.num == 2: # middle click
+                    self.highlight_open_neighbors(btn_coords[0], btn_coords[1], tk.RAISED) #un-highlight anything that was highlighted while the mouse was down
+                
+                # Check to see if the user tried to cancel the click by moving the cursor out of the cell
                 if not(event.x < 0 or event.y < 0 or event.x > self.assets.cell_width or event.y > self.assets.cell_height):      
                     # if self.parent.debug_mode: print('CLICK')
 
@@ -996,13 +1026,11 @@ class SwineMeeperGameManager:
                     else:
                         raise ValueError('Unexpected button click on game cell')
                 else:
-                    #if self.parent.debug_mode: print('unCLICK')
                     self.last_action = 'unCLICK'
-                
-       
+            
+            self.parent.gui.mouse_down = False
     
         def render_gui(self):
-            
             if self.parent.debug_mode: 
                 self.debug_label_text.set(self.get_performance_stats())
             else:
@@ -1013,8 +1041,16 @@ class SwineMeeperGameManager:
             
             self.clock_label_text.set(str(int(self.parent.timer.get_elapsed_time())).zfill(3)) # there's probably a cleaner way to format this #
             self.bomb_counter_text.set(str(self.parent.game.get_num_flags_remaining()).zfill(3))
+            
+            if self.parent.game.game_status==GAME_STATUS_WON:
+                btn_img = 'img_extra_happy'
+            elif self.parent.game.game_status==GAME_STATUS_LOST:
+                btn_img = 'img_unhappy'
+            elif self.parent.game.game_status in (GAME_STATUS_IN_PROGRESS, GAME_STATUS_READY) and self.mouse_down:
+                btn_img = 'img_unsure'
+            else:
+                btn_img = 'img_happy'
 
-            btn_img = 'img_unhappy' if (self.parent.game.game_status==GAME_STATUS_LOST) else 'img_happy'
             self.btn_start.config(image=getattr(self.assets, btn_img))
 
             for i in range(self.parent.game.num_rows): # basic approach: change the image and TODO state of each cell after every user input
